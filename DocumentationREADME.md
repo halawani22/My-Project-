@@ -15,7 +15,7 @@ The user of the application being administrators and authorities in Hajj and Umr
 
 ## A. Demographics and Cross-demographics Analysis 
 
-This feature can be accessed from the homepage (https://e6i65vsyfxwc78pybgzg7a.streamlit.app/). Once on the home page, a user should scroll down to the Cross-Demographic and Demographic Analysis and Sentimental and Text Classification analysis (See the figure below) section on the bottom left of the home page.
+This feature can be accessed from the homepage (https://h7ain98dkm8yqrwiu5xqhr.streamlit.app/). Once on the home page, a user should scroll down to the Cross-Demographic and Demographic Analysis and Sentimental and Text Classification analysis (See the figure below) section on the bottom left of the home page.
 
 <img width="494" height="154" alt="backhome" src="https://github.com/user-attachments/assets/28306de5-3e02-4374-b1c0-dc3ac930e95e" />
 
@@ -71,7 +71,7 @@ Once done and need to access the sentimental and text classification feature, do
 
 ## A. Sentimental and Text Classification Analysis    
 
-Once on the main page, https://sentimentalanalysispilgrim-mwaaysgfzdssubzst7dba2.streamlit.app/, scroll down to the bottom left of the page. Click on the button sentimental and text classification.    
+Once on the main page, https://h7ain98dkm8yqrwiu5xqhr.streamlit.app/, scroll down to the bottom left of the page. Click on the button sentimental and text classification.    
   
 
 
@@ -132,6 +132,7 @@ For Full code structure and debugging visit the notebook and app.py on github pu
 
 -	A real-time comment and feedback sentimental and text classification feature    
 -	Reduce run time and computational cost of analyzing big data    
+
 
 
 
