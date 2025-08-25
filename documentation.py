@@ -35,7 +35,7 @@ The application is designed to provide analysis of the sentiments, demographics 
 The user of the application being administrators and authorities in Hajj and Umrah, can use the application to either analyze sentiments, demographics, or cross-demographic characteristics of visitors. The following sections highlights how to use the features for analysis and text classification.
 
 ## A. Demographics and Cross-demographics Analysis
-This feature can be accessed from the homepage (https://e6i65vsyfxwc78pybgzg7a.streamlit.app/). Once on the home page, a user should scroll down to the Cross-Demographic and Demographic Analysis and Sentimental and Text Classification analysis section on the bottom left of the home page.
+This feature can be accessed from the homepage (https://h7ain98dkm8yqrwiu5xqhr.streamlit.app/). Once on the home page, a user should scroll down to the Cross-Demographic and Demographic Analysis and Sentimental and Text Classification analysis section on the bottom left of the home page.
 
 Double click on the Cross-Demographic and Demographic Analysis button to navigate to demographic and cross demographic analysis section. In this section, the user can get comprehensive and interactive insights into the demographics of Hajj and Umrah pilgrims. The key characteristics analyzed here include:
 - Age Distribution: Interactive visualizations illustrating the range and concentration of pilgrims’ ages.
@@ -111,4 +111,5 @@ For full code structure and debugging, visit the notebook and app.py on the publ
 
 if __name__ == '__main__':
     show()
+
 
