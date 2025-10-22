@@ -15,6 +15,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="PILGRIMAGE DEMOGRAPHICS DASHBOARD", layout="wide")
 
@@ -105,25 +106,24 @@ def home():
 
 
 # ---------------- DASHBOARD ----------------
-# (Your dashboard function stays EXACTLY as before – unchanged)
-# I’ll keep it omitted here for brevity, but in your file, keep the full dashboard section you provided.
+# (UNCHANGED — use your existing dashboard function exactly as above)
+# I’m not modifying that section at all.
 
 
 # ---------------- ANALYZE COMMENTS PAGE ----------------
 def analyze():
     """
-    Analyze comments using toggle between:
-    - VADER Sentiment Analyzer
-    - Fine-tuned BERT Model (from ./saved_model_bert)
+    Analyze comments: translation, classification, and sentiment analysis
+    with toggle between VADER and fine-tuned BERT models.
     """
     add_bg_from_local("background.png")
-    st.title("Sentiment Classification with Primary Model")
+    st.title("Sentiment Classification")
 
     if st.button("Back to Home"):
         st.session_state.page = "home"
         return
 
-    # --- Select Sentiment Model ---
+    # --- Model Toggle ---
     st.markdown("### 🔀 Choose Sentiment Model")
     sentiment_choice = st.radio("Select a model", ["VADER (Lexicon-Based)", "Fine-tuned BERT (Transformer-Based)"])
 
@@ -166,7 +166,15 @@ def analyze():
             label_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
             return label_map.get(pred, "Unknown"), round(confidence, 3)
 
-    # --- Translation cache ---
+    # --- Department classification setup ---
+    themes_topics = {
+        "Customer Service": ["service", "support", "help", "rude", "friendly"],
+        "Product Quality": ["defective", "quality", "broken", "excellent"],
+        "Delivery": ["late", "delivery", "shipping", "on time"],
+        "Billing": ["invoice", "bill", "charged", "refund"],
+        "General Services": ["general", "other"]
+    }
+
     cache = {}
 
     def translator_dual(text, src="auto", dest="en"):
@@ -180,15 +188,6 @@ def analyze():
                 cache[text] = f"Error: {e}"
         return text, cache[text]
 
-    # --- Department classification ---
-    themes_topics = {
-        "Customer Service": ["service", "support", "help", "rude", "friendly"],
-        "Product Quality": ["defective", "quality", "broken", "excellent"],
-        "Delivery": ["late", "delivery", "shipping", "on time"],
-        "Billing": ["invoice", "bill", "charged", "refund"],
-        "General Services": ["general", "other"]
-    }
-
     def classify_department(comment):
         if not isinstance(comment, str):
             return "General Services"
@@ -198,61 +197,58 @@ def analyze():
                 return theme
         return "General Services"
 
-    # --- File uploader / manual input ---
-    uploaded_file = st.file_uploader("Upload comments (CSV, XLSX, PDF, TXT, JSON)", type=["csv", "xlsx", "pdf", "txt", "json"])
-    manual_input = st.text_area("Or enter comments manually (one per line):", height=200)
-
-    def process_chunk(df):
-        df[["Original", "Translated"]] = df["Comments"].apply(lambda c: pd.Series(translator_dual(c)))
-        df["Department"] = df["Translated"].apply(classify_department)
-        df[["Sentiment", "Confidence"]] = df["Translated"].apply(lambda c: pd.Series(analyze_sentiment(c)))
-        return df
-
-    def extract_comments_in_chunks(file):
+    def extract_comments(file):
         filename = file.name.lower()
         if filename.endswith(".pdf"):
             with pdfplumber.open(file) as pdf:
                 text = "\n".join(page.extract_text() or "" for page in pdf.pages)
             lines = [line.strip() for line in text.split("\n") if line.strip()]
-            yield pd.DataFrame({"Comments": lines})
+            return pd.DataFrame({"Comments": lines})
         elif filename.endswith(".txt"):
             text = file.read().decode("utf-8")
             lines = [line.strip() for line in text.split("\n") if line.strip()]
-            yield pd.DataFrame({"Comments": lines})
+            return pd.DataFrame({"Comments": lines})
         elif filename.endswith(".csv"):
-            yield pd.read_csv(file, usecols=["Comments"])
-        elif filename.endswith(".xlsx"):
-            yield pd.read_excel(file, usecols=["Comments"])
+            return pd.read_csv(file, usecols=["Comments"])
+        elif filename.endswith((".xlsx", ".xls")):
+            return pd.read_excel(file, usecols=["Comments"])
         elif filename.endswith(".json"):
-            yield pd.read_json(file)[["Comments"]]
+            return pd.read_json(file)[["Comments"]]
         else:
             st.error("Unsupported file type.")
-            yield None
+            return None
 
-    # --- Processing logic ---
+    def process_data(df):
+        df[["Original", "Translated"]] = df["Comments"].apply(lambda c: pd.Series(translator_dual(c)))
+        df["Department"] = df["Translated"].apply(classify_department)
+        df[["Sentiment", "Confidence"]] = df["Translated"].apply(lambda c: pd.Series(analyze_sentiment(c)))
+        return df
+
+    # --- Input Section ---
+    uploaded_file = st.file_uploader("Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
+    manual_input = st.text_area("Or enter comments manually (one per line):", height=200)
+
     if uploaded_file:
-        st.info("📂 Processing uploaded file...")
-        results = []
-        for chunk in extract_comments_in_chunks(uploaded_file):
-            if chunk is not None:
-                results.append(process_chunk(chunk))
-        if results:
-            df_results = pd.concat(results, ignore_index=True)
+        df = extract_comments(uploaded_file)
+        if df is not None:
+            with st.spinner("Processing uploaded file..."):
+                df_out = process_data(df)
             st.success("✅ Analysis complete!")
-            st.dataframe(df_results.head(500))
-            csv = df_results.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download Results CSV", csv, "sentiment_results.csv", "text/csv")
+            st.dataframe(df_out.head(500))
+            st.download_button("⬇️ Download Results CSV", df_out.to_csv(index=False).encode("utf-8"),
+                               "sentiment_results.csv", "text/csv")
+
     elif manual_input.strip():
-        st.info("📝 Processing manual input...")
         lines = [l.strip() for l in manual_input.split("\n") if l.strip()]
         df_manual = pd.DataFrame({"Comments": lines})
-        df_results = process_chunk(df_manual)
+        with st.spinner("Processing manual input..."):
+            df_out = process_data(df_manual)
         st.success("✅ Analysis complete!")
-        st.dataframe(df_results)
-        csv = df_results.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download Results CSV", csv, "manual_sentiment_results.csv", "text/csv")
+        st.dataframe(df_out)
+        st.download_button("⬇️ Download CSV", df_out.to_csv(index=False).encode("utf-8"),
+                           "manual_sentiment_results.csv", "text/csv")
     else:
-        st.info("Please upload a file or enter comments manually.")
+        st.info("📂 Upload a file or enter comments above to get started.")
 
 
 # ---------------- MAIN ROUTING ----------------
