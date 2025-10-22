@@ -105,7 +105,7 @@ def home():
 # ---------------- DASHBOARD ----------------
 def dashboard():
     """Real-Time Demographic Dashboard (filters, KPIs, charts, frequency tables)."""
-    st.title("📊 Real-Time Demographic Dashboard")
+    st.title("Real-Time Demographic Dashboard")
 
     # Auto-refresh every 10 seconds to simulate real-time updates when data source changes
     st_autorefresh(interval=10 * 1000, limit=None, key="datarefresh")
@@ -158,7 +158,7 @@ def dashboard():
     dataset.columns = dataset.columns.str.strip()
     required_cols = ['العمر Age', 'الجنسية Nationality', 'الجنس Gender']
     if not all(col in dataset.columns for col in required_cols):
-        st.error("❌ Required columns not found in uploaded data. Required: 'العمر Age', 'الجنسية Nationality', 'الجنس Gender'")
+        st.error("Required columns not found in uploaded data. Required: 'العمر Age', 'الجنسية Nationality', 'الجنس Gender'")
         if st.button("Back to Home"):
             st.session_state.page = "home"
         return
@@ -168,7 +168,7 @@ def dashboard():
     dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_map)
 
     # ----------- FILTERS -----------
-    st.markdown("### 🔍 Filter Data")
+    st.markdown("### Filter Data")
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -212,7 +212,7 @@ def dashboard():
         return
 
     # ---------------- KPI SUMMARY CARDS ----------------
-    st.markdown("### 📌 Summary Statistics (Filtered)")
+    st.markdown("### Summary Statistics (Filtered)")
     total_respondents = len(filtered_df)
     distinct_nations = filtered_df['الجنسية Nationality'].nunique()
     male_count = (filtered_df['Gender_English'] == 'Male').sum()
@@ -231,7 +231,7 @@ def dashboard():
     st.markdown("---")
 
     # ---------------- AGE DISTRIBUTION & STATS ----------------
-    st.subheader("📈 Age Distribution with Statistical Markers (Filtered Data)")
+    st.subheader(" Age Distribution with Statistical Markers (Filtered Data)")
 
     # Build age frequency table robustly and ensure numeric sorting
     df_age = filtered_df['العمر Age'].value_counts().reset_index()
@@ -317,7 +317,7 @@ def dashboard():
 
     # ---------------- GENDER-LANGUAGE STACKED BAR (optional) ----------------
     if 'اللغة Language' in filtered_df.columns:
-        st.subheader("🌍 Gender–Language Interaction Analysis (Filtered Data)")
+        st.subheader(" Gender–Language Interaction Analysis (Filtered Data)")
 
         language_translation = {
             'Bahasa Indonesia': 'Indonesian',
@@ -355,7 +355,7 @@ def dashboard():
     st.markdown("---")
 
     # ---------------- FREQUENCY TABLES + CSV DOWNLOADS ----------------
-    st.subheader("🧾 Frequency Distribution Tables (Filtered Data)")
+    st.subheader("Frequency Distribution Tables (Filtered Data)")
 
     # Nationality table + download
     freq_nat = filtered_df['الجنسية Nationality'].value_counts().reset_index()
@@ -363,7 +363,7 @@ def dashboard():
     freq_nat['Percentage'] = (freq_nat['Frequency'] / freq_nat['Frequency'].sum() * 100).round(2)
     st.markdown("#### Nationality Frequency Table")
     st.dataframe(freq_nat)
-    st.download_button("⬇️ Download Nationality CSV", freq_nat.to_csv(index=False).encode('utf-8'), "nationality_freq.csv", "text/csv")
+    st.download_button("⬇️Download Nationality CSV", freq_nat.to_csv(index=False).encode('utf-8'), "nationality_freq.csv", "text/csv")
     st.info("Interpretation: percentages show relative share; frequency shows counts.")
 
     # Gender table + download
@@ -398,7 +398,7 @@ def analyze():
     and chunk-processing for large files (CSV, XLSX, PDF, TXT, JSON).
     """
     add_bg_from_local("background.png")
-    st.title("📝 Sentiment Classification with Primary Model")
+    st.title("Sentiment Classification with Primary Model")
 
     if st.button("Back to Home"):
         st.session_state.page = "home"
@@ -494,7 +494,7 @@ def analyze():
         chunk[["Primary Sentiment", "Confidence"]] = chunk["Translated"].apply(lambda c: pd.Series(analyze_primary_sentiment(c)))
         return chunk
 
-    uploaded_file = st.file_uploader("📄 Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
+    uploaded_file = st.file_uploader("Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
     manual_input = st.text_area("Write or paste/enter comments manually (one per line):", height=200)
 
     if uploaded_file:
@@ -521,7 +521,7 @@ def analyze():
     elif manual_input.strip():
         lines = [line.strip() for line in manual_input.split("\n") if line.strip()]
         df_manual = pd.DataFrame({"Comments": lines})
-        with st.spinner("🔍 Analyzing manual input..."):
+        with st.spinner("Analyzing manual input..."):
             df_results = process_chunk(df_manual)
         st.success("✅ Analysis complete!")
         st.dataframe(df_results)
@@ -549,3 +549,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
