@@ -28,7 +28,6 @@ def get_base64(fp):
 
 
 def add_bg_from_local(image_file):
-    """Adds a static background image for the analyze page."""
     try:
         with open(image_file, "rb") as img_file:
             encoded = base64.b64encode(img_file.read()).decode()
@@ -50,7 +49,6 @@ def add_bg_from_local(image_file):
 
 # ---------------- HOME PAGE ----------------
 def home():
-    """Landing page with background and navigation."""
     try:
         img_b64 = get_base64("pilgrimage.png")
     except Exception:
@@ -59,15 +57,6 @@ def home():
     st.markdown(
         f"""
         <style>
-          .stApp {{
-            background-image: url("data:image/png;base64,{img_b64}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            margin: 0;
-            padding: 0;
-          }}
           .overlay {{
             background-color: rgba(255,255,255,0.85);
             padding: 2rem;
@@ -85,11 +74,11 @@ def home():
         <div class="overlay">
           <h1>PILGRIMAGEAI</h1>
           <h2>Voice of the Pilgrims</h2>
-          <p>PILGRIMAGEAI is an AI-powered platform that automatically analyzes and categorizes large-scale pilgrim feedback data.</p>
+          <p>PILGRIMAGEAI automatically analyzes and categorizes large-scale pilgrim feedback data.</p>
           <ul>
-            <li>Automatic categorization across key service areas</li>
+            <li>Automatic categorization across service areas</li>
             <li>Sentiment analysis for satisfaction insights</li>
-            <li>Actionable intelligence for service improvement</li>
+            <li>Actionable intelligence for improvement</li>
           </ul>
         </div>
         """,
@@ -102,57 +91,146 @@ def home():
     if st.button("Analyze Comments"):
         st.session_state.page = "analyze"
 
-    if st.button("Documentation: Instructions to use the App"):
+    if st.button("Documentation"):
         st.session_state.page = "documentation"
 
 
 # ---------------- DASHBOARD ----------------
-# (UNCHANGED — use your existing dashboard function exactly as above)
-# I’m not modifying that section at all.
+def dashboard():
+    st.title("Real-Time Demographic Dashboard")
+
+    st_autorefresh(interval=10 * 1000, limit=None, key="datarefresh")
+
+    # --- Data Input ---
+    data_source = st.radio("Select Data Source", ['Upload CSV', 'Enter API URL', 'Paste Raw CSV Text'])
+    dataset = None
+
+    if data_source == 'Upload CSV':
+        uploaded = st.file_uploader("Upload CSV or Excel", type=['csv', 'xlsx', 'xls'])
+        if uploaded is not None:
+            dataset = pd.read_csv(uploaded) if uploaded.name.endswith('.csv') else pd.read_excel(uploaded)
+
+    elif data_source == 'Enter API URL':
+        api_url = st.text_input("Enter API URL returning CSV data")
+        if api_url:
+            dataset = pd.read_csv(StringIO(requests.get(api_url).text))
+
+    elif data_source == 'Paste Raw CSV Text':
+        raw_csv = st.text_area("Paste CSV data")
+        if raw_csv:
+            dataset = pd.read_csv(StringIO(raw_csv))
+
+    if dataset is None:
+        st.info("Upload or enter data to continue.")
+        if st.button("Back to Home"):
+            st.session_state.page = "home"
+        return
+
+    # --- Validate Columns ---
+    dataset.columns = dataset.columns.str.strip()
+    required_cols = ['العمر Age', 'الجنسية Nationality', 'الجنس Gender']
+    if not all(col in dataset.columns for col in required_cols):
+        st.error("Missing required columns.")
+        if st.button("Back to Home"):
+            st.session_state.page = "home"
+        return
+
+    # --- Gender Translation ---
+    gender_map = {'أنثى': 'Female', 'ذكر': 'Male'}
+    dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_map)
+
+    # --- Filters ---
+    st.markdown("### Filter Data")
+    col1, col2 = st.columns(2)
+    with col1:
+        genders = dataset['الجنس Gender'].dropna().unique()
+        sel_genders = st.multiselect("Gender", genders, default=list(genders))
+    with col2:
+        nations = dataset['الجنسية Nationality'].dropna().unique()
+        sel_nations = st.multiselect("Nationality", nations, default=list(nations))
+    fdf = dataset[(dataset['الجنس Gender'].isin(sel_genders)) & (dataset['الجنسية Nationality'].isin(sel_nations))]
+
+    if fdf.empty:
+        st.warning("No data after filters.")
+        return
+
+    # --- KPIs ---
+    st.markdown("### Summary")
+    total = len(fdf)
+    uniq_nat = fdf['الجنسية Nationality'].nunique()
+    males = (fdf['Gender_English'] == 'Male').sum()
+    females = (fdf['Gender_English'] == 'Female').sum()
+    ratio = f"{males}:{females}" if males + females > 0 else "N/A"
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Respondents", total)
+    c2.metric("Distinct Nationalities", uniq_nat)
+    c3.metric("Gender Ratio (M:F)", ratio)
+
+    # --- Age Distribution ---
+    st.subheader("Age Distribution")
+    df_age = fdf['العمر Age'].value_counts().reset_index()
+    df_age.columns = ['Age', 'Count']
+    df_age['Age'] = pd.to_numeric(df_age['Age'], errors='coerce')
+    df_age = df_age.dropna().sort_values('Age')
+    fig_age = px.histogram(fdf, x='العمر Age', nbins=20, title="Age Distribution", color_discrete_sequence=['#3498db'])
+    st.plotly_chart(fig_age, use_container_width=True)
+
+    # --- Frequency Tables + Downloads ---
+    st.subheader(" Frequency Tables")
+
+    freq_nat = fdf['الجنسية Nationality'].value_counts().reset_index()
+    freq_nat.columns = ['Nationality', 'Count']
+    st.dataframe(freq_nat)
+    st.download_button("⬇️ Download Nationality CSV", freq_nat.to_csv(index=False).encode(), "nationality.csv")
+
+    freq_gender = fdf['Gender_English'].value_counts().reset_index()
+    freq_gender.columns = ['Gender', 'Count']
+    st.dataframe(freq_gender)
+    st.download_button("⬇️ Download Gender CSV", freq_gender.to_csv(index=False).encode(), "gender.csv")
+
+    freq_age = df_age
+    st.dataframe(freq_age)
+    st.download_button("⬇️ Download Age CSV", freq_age.to_csv(index=False).encode(), "age.csv")
+
+    if st.button("Back to Home"):
+        st.session_state.page = "home"
 
 
-# ---------------- ANALYZE COMMENTS PAGE ----------------
+# ---------------- ANALYZE COMMENTS ----------------
 def analyze():
-    """
-    Analyze comments: translation, classification, and sentiment analysis
-    with toggle between VADER and fine-tuned BERT models.
-    """
     add_bg_from_local("background.png")
-    st.title("Sentiment Classification")
+    st.title("💬 Analyze Pilgrim Comments")
 
     if st.button("Back to Home"):
         st.session_state.page = "home"
         return
 
-    # --- Model Toggle ---
     st.markdown("### Choose Sentiment Model")
-    sentiment_choice = st.radio("Select a model", ["VADER (Lexicon-Based)", "Fine-tuned BERT (Transformer-Based)"])
+    model_choice = st.radio("Select Model", ["VADER (Lexicon-Based)", "Fine-tuned BERT (Transformer-Based)"])
 
-    # --- Load selected model ---
-    if sentiment_choice == "VADER (Lexicon-Based)":
+    # --- Load Model ---
+    if model_choice == "VADER (Lexicon-Based)":
         nltk.download("vader_lexicon")
         sid = SentimentIntensityAnalyzer()
-        st.success(" VADER Sentiment Analyzer loaded successfully.")
+        st.success("✅ VADER loaded.")
 
         def analyze_sentiment(text):
-            scores = sid.polarity_scores(text)
-            compound = scores["compound"]
-            if compound >= 0.05:
-                return "Positive", compound
-            elif compound <= -0.05:
-                return "Negative", compound
-            else:
-                return "Neutral", compound
-
+            s = sid.polarity_scores(text)
+            comp = s["compound"]
+            if comp >= 0.05:
+                return "Positive", comp
+            elif comp <= -0.05:
+                return "Negative", comp
+            return "Neutral", comp
     else:
         try:
             model_path = "./saved_model_bert"
             tokenizer = AutoTokenizer.from_pretrained(model_path)
             model = AutoModelForSequenceClassification.from_pretrained(model_path)
             model.eval()
-            st.success("Fine-tuned BERT model loaded successfully.")
+            st.success("✅ BERT model loaded.")
         except Exception as e:
-            st.error(f"❌ Failed to load BERT model: {e}")
+            st.error(f"Failed to load model: {e}")
             model, tokenizer = None, None
 
         def analyze_sentiment(text):
@@ -160,21 +238,28 @@ def analyze():
                 return "Error", 0.0
             inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
             with torch.no_grad():
-                outputs = model(**inputs)
-                probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                out = model(**inputs)
+                probs = torch.nn.functional.softmax(out.logits, dim=-1)
                 pred = torch.argmax(probs, dim=-1).item()
-                confidence = probs[0][pred].item()
+                conf = probs[0][pred].item()
             label_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
-            return label_map.get(pred, "Unknown"), round(confidence, 3)
+            return label_map.get(pred, "Unknown"), round(conf, 3)
 
-    # --- Department classification setup ---
-    themes_topics = {
-        "Customer Service": ["service", "support", "help", "rude", "friendly"],
-        "Product Quality": ["defective", "quality", "broken", "excellent"],
-        "Delivery": ["late", "delivery", "shipping", "on time"],
-        "Billing": ["invoice", "bill", "charged", "refund"],
-        "General Services": ["general", "other"]
-    }
+    # --- Helper Functions ---
+    def classify_department(comment):
+        topics = {
+            "Customer Service": ["service", "support", "help", "rude", "friendly"],
+            "Product Quality": ["defective", "quality", "broken", "excellent"],
+            "Delivery": ["late", "delivery", "shipping", "on time"],
+            "Billing": ["invoice", "bill", "charged", "refund"]
+        }
+        if not isinstance(comment, str):
+            return "General"
+        t = comment.lower()
+        for theme, words in topics.items():
+            if any(w in t for w in words):
+                return theme
+        return "General"
 
     cache = {}
 
@@ -189,74 +274,59 @@ def analyze():
                 cache[text] = f"Error: {e}"
         return text, cache[text]
 
-    def classify_department(comment):
-        if not isinstance(comment, str):
-            return "General Services"
-        tokens = set(comment.lower().split())
-        for theme, keywords in themes_topics.items():
-            if any(keyword in tokens for keyword in keywords):
-                return theme
-        return "General Services"
+    # --- File/Manual Input ---
+    uploaded = st.file_uploader("Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
+    manual = st.text_area("Or paste comments manually:", height=200)
 
-    def extract_comments(file):
-        filename = file.name.lower()
-        if filename.endswith(".pdf"):
-            with pdfplumber.open(file) as pdf:
-                text = "\n".join(page.extract_text() or "" for page in pdf.pages)
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            return pd.DataFrame({"Comments": lines})
-        elif filename.endswith(".txt"):
-            text = file.read().decode("utf-8")
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            return pd.DataFrame({"Comments": lines})
-        elif filename.endswith(".csv"):
-            return pd.read_csv(file, usecols=["Comments"])
-        elif filename.endswith((".xlsx", ".xls")):
-            return pd.read_excel(file, usecols=["Comments"])
-        elif filename.endswith(".json"):
-            return pd.read_json(file)[["Comments"]]
-        else:
-            st.error("Unsupported file type.")
-            return None
-
-    def process_data(df):
-        df[["Original", "Translated"]] = df["Comments"].apply(lambda c: pd.Series(translator_dual(c)))
+    def process(df):
+        df[["Original", "Translated"]] = df["Comments"].apply(lambda x: pd.Series(translator_dual(x)))
         df["Department"] = df["Translated"].apply(classify_department)
-        df[["Sentiment", "Confidence"]] = df["Translated"].apply(lambda c: pd.Series(analyze_sentiment(c)))
+        df[["Sentiment", "Confidence"]] = df["Translated"].apply(lambda x: pd.Series(analyze_sentiment(x)))
         return df
 
-    # --- Input Section ---
-    uploaded_file = st.file_uploader("Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
-    manual_input = st.text_area("Or enter comments manually (one per line):", height=200)
+    if uploaded:
+        ext = uploaded.name.lower()
+        if ext.endswith(".pdf"):
+            with pdfplumber.open(uploaded) as pdf:
+                text = "\n".join(p.extract_text() or "" for p in pdf.pages)
+            df = pd.DataFrame({"Comments": [l.strip() for l in text.split("\n") if l.strip()]})
+        elif ext.endswith(".csv"):
+            df = pd.read_csv(uploaded)
+        elif ext.endswith((".xls", ".xlsx")):
+            df = pd.read_excel(uploaded)
+        elif ext.endswith(".txt"):
+            text = uploaded.read().decode("utf-8")
+            df = pd.DataFrame({"Comments": [l.strip() for l in text.split("\n") if l.strip()]})
+        elif ext.endswith(".json"):
+            df = pd.read_json(uploaded)
+        else:
+            st.error("Unsupported format.")
+            return
+        if "Comments" not in df.columns:
+            st.error("Column 'Comments' not found.")
+            return
 
-    if uploaded_file:
-        df = extract_comments(uploaded_file)
-        if df is not None:
-            with st.spinner("Processing uploaded file..."):
-                df_out = process_data(df)
-            st.success("✅ Analysis complete!")
-            st.dataframe(df_out.head(500))
-            st.download_button("⬇️ Download Results CSV", df_out.to_csv(index=False).encode("utf-8"),
-                               "sentiment_results.csv", "text/csv")
-
-    elif manual_input.strip():
-        lines = [l.strip() for l in manual_input.split("\n") if l.strip()]
-        df_manual = pd.DataFrame({"Comments": lines})
-        with st.spinner("Processing manual input..."):
-            df_out = process_data(df_manual)
-        st.success("✅ Analysis complete!")
-        st.dataframe(df_out)
-        st.download_button("⬇️ Download CSV", df_out.to_csv(index=False).encode("utf-8"),
-                           "manual_sentiment_results.csv", "text/csv")
+        with st.spinner("Analyzing uploaded file..."):
+            res = process(df)
+        st.success("✅ Completed.")
+        st.dataframe(res)
+        st.download_button("⬇️ Download CSV", res.to_csv(index=False).encode(), "sentiment_results.csv")
+    elif manual.strip():
+        lines = [x.strip() for x in manual.split("\n") if x.strip()]
+        df = pd.DataFrame({"Comments": lines})
+        with st.spinner("Analyzing manual comments..."):
+            res = process(df)
+        st.success("✅ Done.")
+        st.dataframe(res)
+        st.download_button("⬇️ Download CSV", res.to_csv(index=False).encode(), "manual_results.csv")
     else:
-        st.info("📂 Upload a file or enter comments above to get started.")
+        st.info("Upload a file or type comments to analyze.")
 
 
-# ---------------- MAIN ROUTING ----------------
+# ---------------- ROUTING ----------------
 def main():
     if "page" not in st.session_state:
         st.session_state.page = "home"
-
     if st.session_state.page == "home":
         home()
     elif st.session_state.page == "dashboard":
