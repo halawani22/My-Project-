@@ -6,8 +6,8 @@ import base64
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import seaborn as sns  # kept for future use if needed
-import matplotlib.pyplot as plt  # kept for future use if needed
+import seaborn as sns  # kept for future use
+import matplotlib.pyplot as plt  # kept for future use
 import requests
 from io import StringIO
 from streamlit_autorefresh import st_autorefresh
@@ -88,7 +88,6 @@ def home():
     </div>
     """, unsafe_allow_html=True)
 
-    # Navigation buttons
     if st.button("View Dashboard"):
         st.session_state.page = "dashboard"
 
@@ -106,7 +105,6 @@ def dashboard():
     """Real-Time Demographic Dashboard with filters, frequency analysis, and interactive charts."""
     st.title("Real-Time Demographic Dashboard")
 
-    # Decorative header image & description
     img_b64 = get_base64("analysis.png")
     st.markdown(f"""
     <style>
@@ -148,393 +146,147 @@ def dashboard():
     </div>
     """, unsafe_allow_html=True)
 
-    # Auto-refresh to mimic real-time updates (interval in ms)
     st_autorefresh(interval=10 * 1000, limit=None, key="datarefresh")
 
-    # -------------------------
-    # Data input: multiple options
-    # -------------------------
+    # ------------- DATA INPUT -------------
     data_source = st.radio("Select Data Source", ['Upload CSV', 'Enter API URL', 'Paste Raw CSV Text'])
     dataset = None
 
     if data_source == 'Upload CSV':
-        uploaded_file = st.file_uploader("Upload your data file", type=['csv', 'xlsx', 'xls', 'ods', 'txt', 'pdf'])
-        if uploaded_file is not None:
-            file_type = uploaded_file.name.split('.')[-1].lower()
-            try:
-                if file_type in ['csv', 'txt']:
-                    dataset = pd.read_csv(uploaded_file, encoding='utf-8', errors='replace')
-                elif file_type in ['xls', 'xlsx', 'ods']:
-                    dataset = pd.read_excel(uploaded_file)
-                elif file_type == 'pdf':
-                    st.error("PDF files are currently not supported for data upload. Please upload CSV or Excel files.")
-                else:
-                    st.error(f"Unsupported file type: {file_type}")
-            except Exception as e:
-                st.error(f"Error reading file: {e}")
+        uploaded_file = st.file_uploader("Upload your data file", type=['csv', 'xlsx', 'xls', 'ods', 'txt'])
+        if uploaded_file:
+            ext = uploaded_file.name.split('.')[-1].lower()
+            if ext in ['csv', 'txt']:
+                dataset = pd.read_csv(uploaded_file, encoding='utf-8', errors='replace')
+            elif ext in ['xls', 'xlsx', 'ods']:
+                dataset = pd.read_excel(uploaded_file)
 
     elif data_source == 'Enter API URL':
         api_url = st.text_input("Enter API URL returning CSV data")
         if api_url:
-            try:
-                response = requests.get(api_url)
-                response.raise_for_status()
-                dataset = pd.read_csv(StringIO(response.text))
-            except Exception as e:
-                st.error(f"Failed to fetch data from API: {e}")
+            r = requests.get(api_url)
+            dataset = pd.read_csv(StringIO(r.text))
 
     elif data_source == 'Paste Raw CSV Text':
         raw_csv = st.text_area("Paste your CSV text here")
         if raw_csv:
-            try:
-                dataset = pd.read_csv(StringIO(raw_csv))
-            except Exception as e:
-                st.error(f"Failed to parse CSV text: {e}")
+            dataset = pd.read_csv(StringIO(raw_csv))
 
-    # If no data: prompt and return
     if dataset is None:
         st.info("Please upload or enter data to continue.")
         if st.button("Back to Home"):
             st.session_state.page = "home"
         return
 
-    # -------------------------
-    # Basic validation & preprocessing
-    # -------------------------
     dataset.columns = dataset.columns.str.strip()
-    required_cols = ['العمر Age', 'الجنسية Nationality', 'الجنس Gender']
-    if not all(col in dataset.columns for col in required_cols):
-        st.error("❌ Required columns not found in uploaded data.")
-        if st.button("Back to Home"):
-            st.session_state.page = "home"
+    required = ['العمر Age', 'الجنسية Nationality', 'الجنس Gender']
+    if not all(c in dataset.columns for c in required):
+        st.error("❌ Required columns not found.")
         return
 
-    # Map Arabic gender labels to English for consistent handling and labeling
     gender_map = {'أنثى': 'Female', 'ذكر': 'Male'}
     dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_map)
 
-    # -------------------------
-    # FILTERS (applied to dataset)
-    # -------------------------
+    # ------------- FILTERS -------------
     st.markdown("### Filter Data")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        g_opts = dataset['الجنس Gender'].dropna().unique()
+        sel_g = st.multiselect("Gender", g_opts, default=list(g_opts))
+    with c2:
+        n_opts = dataset['الجنسية Nationality'].dropna().unique()
+        sel_n = st.multiselect("Nationality", n_opts, default=list(n_opts))
+    with c3:
+        date_cols = [c for c in dataset.columns if 'date' in c.lower()]
+        date_col = date_cols[0] if date_cols else None
+        if date_col:
+            dataset[date_col] = pd.to_datetime(dataset[date_col], errors='coerce')
+            min_d, max_d = dataset[date_col].min(), dataset[date_col].max()
+            date_rng = st.date_input("Date Range", [min_d, max_d])
+        else:
+            st.write("No date field")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        gender_options = dataset['الجنس Gender'].dropna().unique()
-        selected_genders = st.multiselect("Filter by Gender", options=gender_options, default=list(gender_options))
-
-    with col2:
-        nationality_options = dataset['الجنسية Nationality'].dropna().unique()
-        selected_nationalities = st.multiselect("Filter by Nationality", options=nationality_options, default=list(nationality_options))
-
-    # Optional date filtering if a date-like column exists
-    date_cols = [c for c in dataset.columns if 'date' in c.lower()]
-    date_column = None
-    date_range = None
-
-    if date_cols:
-        date_column = date_cols[0]
-        dataset[date_column] = pd.to_datetime(dataset[date_column], errors='coerce')
-        min_date = dataset[date_column].min()
-        max_date = dataset[date_column].max()
-        with col3:
-            date_range = st.date_input(
-                "Filter by Date Range",
-                [min_date, max_date],
-                min_value=min_date,
-                max_value=max_date
-            )
-    else:
-        with col3:
-            st.write("No date column found for filtering")
-
-    # Apply selected filters
-    filtered_df = dataset[
-        dataset['الجنس Gender'].isin(selected_genders) &
-        dataset['الجنسية Nationality'].isin(selected_nationalities)
+    fdf = dataset[
+        dataset['الجنس Gender'].isin(sel_g) &
+        dataset['الجنسية Nationality'].isin(sel_n)
     ]
+    if date_col:
+        start, end = pd.to_datetime(date_rng[0]), pd.to_datetime(date_rng[1])
+        fdf = fdf[(fdf[date_col] >= start) & (fdf[date_col] <= end)]
 
-    # Apply date range if present
-    if date_column and date_range and len(date_range) == 2:
-        start_date, end_date = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
-        filtered_df = filtered_df[
-            (filtered_df[date_column] >= start_date) &
-            (filtered_df[date_column] <= end_date)
-        ]
-
-    # If no data after filtering, warn and exit
-    if filtered_df.empty:
-        st.warning("No data after applying filters.")
+    if fdf.empty:
+        st.warning("No data after filters.")
         return
 
-    # -------------------------
-    # AGE Distribution statistics (central place for full stats)
-    # -------------------------
-    # Build a repeated-series for proper stats calculations from the frequency table
-    df_Age = filtered_df["العمر Age"].value_counts().reset_index()
-    df_Age.columns = ['العمر Age', 'count']
-    df_Age = df_Age.sort_values('العمر Age')
-    df_repeated = df_Age['العمر Age'].repeat(df_Age['count']).astype(float)
+    # ---------------- KPI SUMMARY CARDS ----------------
+    total_resp = len(fdf)
+    distinct_nat = fdf['الجنسية Nationality'].nunique()
+    gender_counts = fdf['Gender_English'].value_counts()
+    ratio = f"{gender_counts.get('Male',0)} : {gender_counts.get('Female',0)} (M:F)"
 
-    if df_repeated.empty:
-        st.warning("No age data available after filtering.")
-        return
+    st.markdown("### 📊 Key Metrics Summary")
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Total Respondents", total_resp)
+    k2.metric("Distinct Nationalities", distinct_nat)
+    k3.metric("Gender Ratio (M:F)", ratio)
+    st.markdown("---")
 
-    # Statistical metrics for age
+    # ---------------- AGE DISTRIBUTION ----------------
+    df_age = fdf["العمر Age"].value_counts().reset_index().rename(columns={'index':'العمر Age','العمر Age':'count'}).sort_values('العمر Age')
+    df_rep = df_age['العمر Age'].repeat(df_age['count']).astype(float)
     stats = {
-        "max": df_repeated.max(),
-        "min": df_repeated.min(),
-        "q1": df_repeated.quantile(0.25),
-        "median": df_repeated.median(),
-        "q3": df_repeated.quantile(0.75),
-        "std": df_repeated.std(),
-        "mean": df_repeated.mean(),
-        "mode": df_repeated.mode().iloc[0],
-        "skewness": df_repeated.skew(),
-        "kurtosis": df_repeated.kurt()
+        "mean": df_rep.mean(), "median": df_rep.median(), "mode": df_rep.mode().iloc[0],
+        "min": df_rep.min(), "max": df_rep.max()
     }
 
-    # Age histogram with Plotly and vertical lines for mean/median/mode
     st.markdown("### 📈 Age Distribution with Statistical Markers")
-    fig_age_dist = px.histogram(filtered_df, x='العمر Age', nbins=20, title="Age Distribution (Filtered Data)")
-    fig_age_dist.add_vline(x=stats["mean"], line_dash="dot", line_color="red", annotation_text=f"Mean: {stats['mean']:.2f}")
-    fig_age_dist.add_vline(x=stats["median"], line_dash="dash", line_color="orange", annotation_text=f"Median: {stats['median']:.2f}")
-    fig_age_dist.add_vline(x=stats["mode"], line_dash="dashdot", line_color="purple", annotation_text=f"Mode: {stats['mode']:.2f}")
-    st.plotly_chart(fig_age_dist, use_container_width=True)
+    fig_age = px.histogram(fdf, x='العمر Age', nbins=20, title="Age Distribution")
+    fig_age.add_vline(x=stats["mean"], line_dash="dot", line_color="red", annotation_text=f"Mean: {stats['mean']:.2f}")
+    fig_age.add_vline(x=stats["median"], line_dash="dash", line_color="orange", annotation_text=f"Median: {stats['median']:.2f}")
+    fig_age.add_vline(x=stats["mode"], line_dash="dashdot", line_color="purple", annotation_text=f"Mode: {stats['mode']:.2f}")
+    st.plotly_chart(fig_age, use_container_width=True)
 
-    # Detailed interpretation for age (only place we show full stats explanations)
-    st.info(f"""
-    **How to interpret the Age Distribution & statistics:**  
-    - **Mean ({stats['mean']:.2f})** — average age; sensitive to outliers.  
-    - **Median ({stats['median']:.2f})** — middle value; robust to outliers.  
-    - **Mode ({stats['mode']:.2f})** — most common age in the data.  
-    - **Min / Max** — range of ages: {stats['min']:.0f} to {stats['max']:.0f}.  
-    - **Q1 / Q3** — first and third quartiles: {stats['q1']:.0f} / {stats['q3']:.0f}.  
-    - **IQR** — interquartile range shows spread in the middle 50%.  
-    - **Std Dev ({stats['std']:.2f}) & Variance** quantify dispersion.  
-    - **Skewness ({stats['skewness']:.2f})** — positive => right-skew (long right tail), negative => left-skew.  
-    - **Kurtosis ({stats['kurtosis']:.2f})** — high kurtosis suggests heavy tails (more outliers).
-    """)
-
-    st.markdown("---")
-
-    # -------------------------
-    # Age counts by unique age (line chart)
-    # -------------------------
-    fig_age_line = px.line(df_Age, x='العمر Age', y='count', markers=True,
-                          title="Age Distribution (Counts by Age)", labels={'العمر Age': "Age", 'count': "Count"})
-    fig_age_line.update_layout(template="plotly_dark", height=450)
-    st.plotly_chart(fig_age_line, use_container_width=True)
-
-    st.markdown("---")
-
-    # -------------------------
-    # Nationality by Gender (grouped histogram)
-    # -------------------------
-    fig_nat_gender = px.histogram(
-        filtered_df, x='الجنسية Nationality', color='Gender_English',
-        barmode="group",
-        title="Demographics of Nationality by Gender",
-        labels={'Gender_English': "Gender", 'الجنسية Nationality': "Nationality"}
-    )
-    fig_nat_gender.update_layout(template="plotly_white", height=450)
-    st.plotly_chart(fig_nat_gender, use_container_width=True)
-
-    st.info("This grouped bar chart shows nationality counts split by gender. Compare bars within each nationality to see gender balance per country.")
-
-    st.markdown("---")
-
-    # -------------------------
-    # Bubble Chart: Nationality & Gender by Mean Age
-    # -------------------------
-    agg = filtered_df.groupby(['الجنسية Nationality', 'Gender_English']).agg(
-        count=('العمر Age', 'count'),
-        avg_age=('العمر Age', 'mean')).reset_index()
-    agg['avg_age'] = agg['avg_age'].round(1)
-
-    fig_bubble = px.scatter(
-        agg, x='الجنسية Nationality', y='count', size='avg_age',
-        color='الجنسية Nationality', facet_col='Gender_English',
-        title="Nationality and Gender by Mean Age", size_max=30,
-        labels={'count': 'Count', 'الجنسية Nationality': 'Nationality'}
-    )
-    fig_bubble.update_layout(template="plotly_dark", height=500)
-    st.plotly_chart(fig_bubble, use_container_width=True)
-
-    st.info("Bubble size corresponds to average age for that nationality/gender group. Larger bubbles mean higher mean age; y-axis shows count.")
-
-    st.markdown("---")
-
-    # -------------------------
-    # Full Demographics (Age, Gender, Nationality) - Faceted histogram
-    # -------------------------
-    fig_demo = px.histogram(
-        filtered_df, x='العمر Age', color='الجنسية Nationality', facet_col='Gender_English',
-        barmode="overlay", title="Demographic Characteristics: Age, Gender, Nationality"
-    )
-    fig_demo.update_layout(template="ggplot2", height=500)
-    st.plotly_chart(fig_demo, use_container_width=True)
-
-    st.info("Faceted histograms let you compare age distributions across genders and nationalities at once. Look for differences in shapes between facets.")
-
-    st.markdown("---")
-
-    # -------------------------
-    # OPTIONAL: Gender x Language stacked bar chart
-    # Render ONLY if language column exists
-    # -------------------------
-    if 'اللغة Language' in dataset.columns:
-        st.subheader("🌍 Gender–Language Interaction Analysis")
-
-        # Translation dictionaries to map language names and gender for display
-        language_translation = {
-            'Bahasa Indonesia': 'Indonesian',
-            'Français': 'French',
-            'Türkçe': 'Turkish',
-            'বাংলা (Bengali)': 'Bengali',
-            'اردو': 'Urdu',
-            'English': 'English',
-            'فارسی': 'Persian (Farsi)',
-            'العربية': 'Arabic'
-        }
-
-        gender_translation = {
-            'أنثى': 'Female',
-            'ذكر': 'Male'
-        }
-
-        # Ensure we have a Gender_English column (created earlier). If not, create it.
-        if 'Gender_English' not in dataset.columns:
-            dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_translation)
-
-        # Build cross-tab (gender x language) on the FILTERED dataset so filters apply
-        language_gender_ct = pd.crosstab(filtered_df['Gender_English'], filtered_df['اللغة Language'])
-
-        gender_labels = language_gender_ct.index.tolist()
-
-        # Build stacked bar traces using graph_objects for custom hover text
-        bars = []
-        for language in language_gender_ct.columns:
-            # Map language label if available, otherwise fallback to original
-            label_language = language_translation.get(language, language)
-
-            hover_text = [
-                f"Gender: {gender}<br>Language: {label_language}<br>Count: {count}"
-                for gender, count in zip(gender_labels, language_gender_ct[language])
-            ]
-
-            bars.append(go.Bar(
-                name=label_language,
-                x=gender_labels,
-                y=language_gender_ct[language],
-                hovertext=hover_text,
-                hoverinfo='text'
-            ))
-
-        fig_lang_gender = go.Figure(data=bars)
-        fig_lang_gender.update_layout(
-            barmode='stack',
-            title='Distribution of Gender and Language (Filtered Data)',
-            xaxis_title='Gender',
-            yaxis_title='Count',
-            legend_title='Language',
-            template='plotly_white'
-        )
-
-        st.plotly_chart(fig_lang_gender, use_container_width=True)
-        st.info("Stacked bars show the count of languages spoken per gender. Taller total bars mean more respondents of that gender; colored segments show language composition.")
-
-    else:
-        # If language not present, let the user know it's optional
-        st.info("Language column ('اللغة Language') not found — Gender–Language analysis is optional and will appear if your dataset includes that column.")
-
-    st.markdown("---")
-
-    # -------------------------
-    # Frequency Distribution Analysis (Filtered Data)
-    # Show frequency tables for Nationality, Gender, and Age
-    # -------------------------
+    # ---------------- FREQUENCY TABLES WITH DOWNLOADS ----------------
     st.subheader("🧮 Frequency Distribution Analysis (Filtered Data)")
 
-    # Nationality frequency table + percentage + total row
-    freq_nat = filtered_df["الجنسية Nationality"].value_counts().reset_index()
+    # --- Nationality ---
+    freq_nat = fdf["الجنسية Nationality"].value_counts().reset_index()
     freq_nat.columns = ["Nationality", "Frequency"]
     freq_nat["Percentage"] = (freq_nat["Frequency"] / freq_nat["Frequency"].sum() * 100).round(2)
-    totals_nat = pd.DataFrame([{"Nationality": "Total", "Frequency": freq_nat["Frequency"].sum(), "Percentage": freq_nat["Percentage"].sum()}])
-    freq_nat_display = pd.concat([freq_nat, totals_nat], ignore_index=True)
     st.markdown("#### Nationality Frequency Table")
-    st.dataframe(freq_nat_display)
-    st.info("Higher frequency indicates a larger representation of that nationality in the filtered dataset. Use percentages to compare relative shares across countries.")
+    st.dataframe(freq_nat)
+    st.download_button("⬇️ Download Nationality CSV", freq_nat.to_csv(index=False).encode('utf-8'),
+                       "nationality_freq.csv", "text/csv")
 
-    # Gender frequency table + percentage + total row
-    freq_gender = filtered_df["Gender_English"].value_counts().reset_index()
-    freq_gender.columns = ["Gender", "Frequency"]
-    freq_gender["Percentage"] = (freq_gender["Frequency"] / freq_gender["Frequency"].sum() * 100).round(2)
-    totals_gender = pd.DataFrame([{"Gender": "Total", "Frequency": freq_gender["Frequency"].sum(), "Percentage": freq_gender["Percentage"].sum()}])
-    freq_gender_display = pd.concat([freq_gender, totals_gender], ignore_index=True)
+    # --- Gender ---
+    freq_g = fdf["Gender_English"].value_counts().reset_index()
+    freq_g.columns = ["Gender", "Frequency"]
+    freq_g["Percentage"] = (freq_g["Frequency"] / freq_g["Frequency"].sum() * 100).round(2)
     st.markdown("#### Gender Frequency Table")
-    st.dataframe(freq_gender_display)
-    st.info("Gender distribution shows the proportion of male and female pilgrims in the filtered dataset. Use percentages for quick comparison.")
+    st.dataframe(freq_g)
+    st.download_button("⬇️ Download Gender CSV", freq_g.to_csv(index=False).encode('utf-8'),
+                       "gender_freq.csv", "text/csv")
 
-    # Age frequency table + percentage + total row
-    freq_age = filtered_df['العمر Age'].value_counts().reset_index()
-    freq_age.columns = ["Age", "Frequency"]
-    freq_age = freq_age.sort_values("Age")
-    freq_age["Percentage"] = (freq_age["Frequency"] / freq_age["Frequency"].sum() * 100).round(2)
-    totals_age = pd.DataFrame([{"Age": "Total", "Frequency": freq_age["Frequency"].sum(), "Percentage": freq_age["Percentage"].sum()}])
-    freq_age_display = pd.concat([freq_age, totals_age], ignore_index=True)
+    # --- Age ---
+    freq_a = fdf['العمر Age'].value_counts().reset_index()
+    freq_a.columns = ["Age", "Frequency"]
+    freq_a["Percentage"] = (freq_a["Frequency"] / freq_a["Frequency"].sum() * 100).round(2)
     st.markdown("#### Age Frequency Table")
-    st.dataframe(freq_age_display)
-    st.info("Observe which ages dominate the distribution to identify the primary demographic age range in the filtered data.")
+    st.dataframe(freq_a)
+    st.download_button("⬇️ Download Age CSV", freq_a.to_csv(index=False).encode('utf-8'),
+                       "age_freq.csv", "text/csv")
 
     st.markdown("---")
 
-    # -------------------------
-    # Graphical Representations of Frequency Distributions (Plotly)
-    # -------------------------
-    st.subheader("📊 Graphical Representation of Distributions (Plotly)")
-
-    # Nationality bar chart
-    if not freq_nat.empty:
-        fig_nat = px.bar(freq_nat, x="Nationality", y="Frequency", title="Nationality: Frequency Distribution",
-                         color="Frequency", color_continuous_scale="Viridis")
-        fig_nat.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig_nat, use_container_width=True)
-        st.info("Taller bars indicate higher representation by nationality. Look for countries that dominate or are underrepresented.")
-
-    # Gender pie chart
-    if not freq_gender.empty:
-        fig_gender = px.pie(freq_gender, names="Gender", values="Frequency", title="Gender: Proportional Distribution",
-                            color_discrete_sequence=px.colors.qualitative.Set3)
-        st.plotly_chart(fig_gender, use_container_width=True)
-        st.info("Pie chart reveals gender proportionality — near equal slices suggest balance; skewed slices highlight dominance by one gender.")
-
-    # Age histogram
-    fig_age_hist = px.histogram(filtered_df, x="العمر Age", nbins=15, title="Age: Frequency Distribution (Filtered Data)")
-    st.plotly_chart(fig_age_hist, use_container_width=True)
-    st.info("""
-    **How to interpret the age histogram & statistics:**  
-    - **Shape**: indicates whether the distribution is left/right-skewed or approximately normal.  
-    - **Spread**: wide spread = high variance / age diversity.  
-    - **Skewness**: positive = right-skew (long tail to the right), negative = left-skew.  
-    - **Kurtosis**: high kurtosis suggests heavy tails / more outliers.  
-    - Compare mean vs median to detect skew.
-    """)
-
-    st.markdown("---")
-
-    # Back to home button
     if st.button("Back to Home"):
         st.session_state.page = "home"
 
 
 # -------------------------
 # ANALYZE COMMENTS PAGE
-# (unchanged functionality: translation + sentiment pipeline + chunk processing)
 # -------------------------
 def analyze():
-    """Analyze comments: translation, department classification, primary sentiment."""
+    """Analyze comments: translation, department classification, sentiment."""
     add_bg_from_local("background.png")
     st.title("Sentiment Classification with Primary Model")
 
@@ -542,146 +294,62 @@ def analyze():
         st.session_state.page = "home"
         return
 
-    # Themes & keywords for simple department classification
-    themes_topics = {
-        "Customer Service": ["service", "support", "help", "rude", "friendly"],
-        "Product Quality": ["defective", "quality", "broken", "excellent"],
-        "Delivery": ["late", "delivery", "shipping", "on time"],
-        "Billing": ["invoice", "bill", "charged", "refund"],
-        "General Services": ["general", "other"]
-    }
-
-    # Primary sentiment pipeline (Hugging Face)
-    primary_pipeline = pipeline("sentiment-analysis", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english", framework="pt")
+    themes_topics = {"Customer Service": ["service","support"],"Product Quality":["quality"],"Delivery":["delivery"],"Billing":["bill"]}
+    primary_pipeline = pipeline("sentiment-analysis", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english")
     cache = {}
 
-    def translator_dual(text, src="auto", dest="en"):
-        """Translate text to English (cached)."""
-        if pd.isnull(text):
-            return None, None
-        text = str(text).strip()
-        if text not in cache:
-            try:
-                cache[text] = GoogleTranslator(source=src, target=dest).translate(text)
-            except Exception as e:
-                cache[text] = f"Error: {e}"
-        return text, cache[text]
+    def translator_dual(t): return t, GoogleTranslator(source="auto", target="en").translate(t)
+    def classify_department(c): 
+        for k,v in themes_topics.items():
+            if any(x in c.lower() for x in v): return k
+        return "General"
+    def analyze_primary(c): r = primary_pipeline(c)[0]; return r["label"], round(r["score"],2)
 
-    def classify_department(comment):
-        """Assign a thematic department based on keyword matching."""
-        tokens = set(comment.lower().split())
-        for theme, keywords in themes_topics.items():
-            if any(keyword in tokens for keyword in keywords):
-                return theme
-        return "General Services"
+    upl = st.file_uploader("📄 Upload CSV, Excel, or TXT", type=["csv","xlsx","txt"])
+    man = st.text_area("Enter comments manually (one per line):", height=200)
 
-    def analyze_primary_sentiment(comment):
-        """Return sentiment label and confidence score from pipeline."""
-        result = primary_pipeline(comment)[0]
-        return result["label"], round(result["score"], 2)
+    if upl:
+        df = pd.read_csv(upl) if upl.name.endswith(".csv") else pd.read_excel(upl)
+        df["Translated"] = df["Comments"].apply(lambda x: translator_dual(str(x))[1])
+        df["Department"] = df["Translated"].apply(classify_department)
+        df[["Sentiment","Confidence"]] = df["Translated"].apply(lambda x: pd.Series(analyze_primary(x)))
+        st.dataframe(df)
+        st.download_button("⬇️ Download Results", df.to_csv(index=False).encode('utf-8'), "sentiment_results.csv", "text/csv")
 
-    def extract_comments_in_chunks(file, chunksize=10000):
-        """Yield chunks of comments from various file formats to avoid memory issues."""
-        filename = file.name.lower()
-        if filename.endswith(".pdf"):
-            with pdfplumber.open(file) as pdf:
-                text = "\n".join(page.extract_text() or "" for page in pdf.pages)
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            yield pd.DataFrame({"Comments": lines})
-        elif filename.endswith(".txt"):
-            text = file.read().decode("utf-8")
-            lines = [line.strip() for line in text.split("\n") if line.strip()]
-            yield pd.DataFrame({"Comments": lines})
-        elif filename.endswith(".csv"):
-            for chunk in pd.read_csv(file, chunksize=chunksize):
-                chunk.columns = [col.strip() for col in chunk.columns]
-                if "Comments" in chunk.columns:
-                    yield chunk[["Comments"]]
-        elif filename.endswith(".xlsx"):
-            df = pd.read_excel(file)
-            if "Comments" in df.columns:
-                yield df[["Comments"]]
-        elif filename.endswith(".json"):
-            df = pd.read_json(file)
-            if "Comments" in df.columns:
-                yield df[["Comments"]]
-        else:
-            st.warning("Unsupported file format.")
-            yield None
-
-    def process_chunk(chunk):
-        """Process a DataFrame chunk: translate, classify department, analyze sentiment."""
-        chunk[["Original", "Translated"]] = chunk["Comments"].apply(lambda c: pd.Series(translator_dual(c)))
-        chunk["Department"] = chunk["Translated"].apply(classify_department)
-        chunk[["Primary Sentiment", "Confidence"]] = chunk["Translated"].apply(lambda c: pd.Series(analyze_primary_sentiment(c)))
-        return chunk
-
-    # Upload or manual input
-    uploaded_file = st.file_uploader("📄 Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
-    manual_input = st.text_area("Write Or paste/enter comments manually (one per line):", height=200)
-
-    if uploaded_file:
-        results = []
-        total_rows_estimate = 1_000_000
-        progress_bar = st.progress(0)
-        rows_processed = 0
-        for chunk in extract_comments_in_chunks(uploaded_file):
-            if chunk is None:
-                break
-            processed = process_chunk(chunk)
-            results.append(processed)
-            rows_processed += len(processed)
-            progress_bar.progress(min(rows_processed / total_rows_estimate, 1.0))
-        if results:
-            df_results = pd.concat(results, ignore_index=True)
-            st.success(f"✅ Completed processing {rows_processed} rows!")
-            st.dataframe(df_results.head(1000))
-            csv = df_results.to_csv(index=False).encode("utf-8")
-            st.download_button("⬇️ Download Results", csv, "primary_model_results.csv", "text/csv")
-
-    elif manual_input.strip():
-        lines = [line.strip() for line in manual_input.split("\n") if line.strip()]
-        df_manual = pd.DataFrame({"Comments": lines})
-        with st.spinner("🔍 Analyzing manual input..."):
-            df_results = process_chunk(df_manual)
-        st.success("✅ Analysis complete!")
-        st.dataframe(df_results)
-        csv = df_results.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download CSV", csv, "manual_primary_results.csv", "text/csv")
-
+    elif man.strip():
+        lines = [l.strip() for l in man.split("\n") if l.strip()]
+        df = pd.DataFrame({"Comments":lines})
+        df["Translated"] = df["Comments"].apply(lambda x: translator_dual(str(x))[1])
+        df["Department"] = df["Translated"].apply(classify_department)
+        df[["Sentiment","Confidence"]] = df["Translated"].apply(lambda x: pd.Series(analyze_primary(x)))
+        st.dataframe(df)
+        st.download_button("⬇️ Download CSV", df.to_csv(index=False).encode('utf-8'), "manual_results.csv", "text/csv")
     else:
-        st.info("📂 Upload a file or enter comments above to get started.")
+        st.info("📂 Upload a file or enter comments above.")
 
 
 # -------------------------
-# BACKGROUND CSS FOR ANALYZE PAGE
+# BACKGROUND HELPER
 # -------------------------
 def add_bg_from_local(image_file):
-    """Set a background image for the analyze page."""
-    with open(image_file, "rb") as img_file:
-        encoded_string = base64.b64encode(img_file.read()).decode()
-    st.markdown(
-        f"""
+    with open(image_file, "rb") as img:
+        enc = base64.b64encode(img.read()).decode()
+    st.markdown(f"""
         <style>
         .stApp {{
-            background-image: url("data:image/png;base64,{encoded_string}");
+            background-image: url("data:image/png;base64,{enc}");
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            background-attachment: fixed;
-            color: #f1d9b5;
         }}
         </style>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
 
 # -------------------------
 # MAIN ROUTING
 # -------------------------
 def main():
-    """Main app router switching between pages stored in session_state."""
     if 'page' not in st.session_state:
         st.session_state.page = "home"
 
@@ -692,7 +360,6 @@ def main():
     elif st.session_state.page == "analyze":
         analyze()
     elif st.session_state.page == "documentation":
-        # documentation.show() should render the documentation page from your module
         documentation.show()
 
 
