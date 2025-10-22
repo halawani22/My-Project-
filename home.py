@@ -6,8 +6,8 @@ import base64
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import seaborn as sns
-import matplotlib.pyplot as plt
+import seaborn as sns  # kept for future use if needed
+import matplotlib.pyplot as plt  # kept for future use if needed
 import requests
 from io import StringIO
 from streamlit_autorefresh import st_autorefresh
@@ -17,14 +17,20 @@ import pdfplumber
 import documentation
 
 
-# --- HELPER: Background Setup ---
+# -------------------------
+# HELPER: Background Setup
+# -------------------------
 def get_base64(fp):
+    """Return base64 string for an image file path (used for backgrounds)."""
     with open(fp, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
 
-# --- HOME PAGE ---
+# -------------------------
+# HOME PAGE
+# -------------------------
 def home():
+    """Render the home / landing page with background and navigation buttons."""
     img_b64 = get_base64("pilgrimage.png")
 
     st.markdown(f"""
@@ -76,30 +82,32 @@ def home():
       <ul>
         <li>Automatically categorizes feedback across key service areas</li>
         <li>Performs sentiment analysis to assess overall satisfaction levels</li>
-        <li>Provides authorities with data driven insights to enhance service quality and pilgrim experience</li>
+        <li>Provides authorities with data-driven insights to enhance service quality and pilgrim experience</li>
       </ul>
       <p>By adopting this NLP-powered approach, Hajj and Umrah authorities can make informed decisions, prioritize improvements, and ensure a more fulfilling pilgrimage.</p>
     </div>
     """, unsafe_allow_html=True)
 
+    # Navigation buttons
     if st.button("View Dashboard"):
         st.session_state.page = "dashboard"
 
     if st.button("Analyze Comments"):
         st.session_state.page = "analyze"
-    
+
     if st.button("Documentation:Instructions to use the App"):
         st.session_state.page = "documentation"
 
 
-# --- DASHBOARD PAGE ---
+# -------------------------
+# DASHBOARD PAGE
+# -------------------------
 def dashboard():
+    """Real-Time Demographic Dashboard with filters, frequency analysis, and interactive charts."""
     st.title("Real-Time Demographic Dashboard")
 
-    # -- Load image
+    # Decorative header image & description
     img_b64 = get_base64("analysis.png")
-
-    # -- Inject CSS & HTML for image + overlay text
     st.markdown(f"""
     <style>
       .custom-container {{
@@ -125,33 +133,30 @@ def dashboard():
         padding: 1rem;
         border-radius: 0.5rem;
       }}
-      .custom-container ul {{
-        padding-left: 2rem;
-      }}
+      .custom-container ul {{ padding-left: 2rem; }}
     </style>
 
     <div class="custom-container">
       <h2>AI-Powered Demographic Insights</h2>
       <p>This AI-powered dashboard delivers comprehensive insights into the demographics of Hajj and Umrah pilgrims.</p>
-
-      <p>Designed to empower pilgrimage authorities, the dashboard provides:</p>
-
       <ul>
         <li><strong>Age Distribution</strong>: Interactive visualizations illustrating the range and concentration of pilgrims’ ages.</li>
-        <li><strong>Statistical Overview</strong>: Key metrics including minimum, maximum, mean, quartiles, and mode of pilgrim ages.</li>
+        <li><strong>Statistical Overview</strong>: Key metrics including min, max, mean, median, quartiles, and mode of pilgrim ages.</li>
         <li><strong>Nationality & Gender Breakdown</strong>: Detailed analysis of visitor nationalities segmented by gender.</li>
-        <li><strong>Cross-Demographic Insights</strong>: Integrated visualizations combining age, gender, and nationality to highlight deeper demographic trends.</li>
+        <li><strong>Cross-Demographic Insights</strong>: Visualizations combining age, gender, nationality, and language where available.</li>
       </ul>
-
-      <p>Built using Plotly for an intuitive and engaging user experience, this platform transforms millions of multilingual feedback entries into actionable intelligence to enhance pilgrimage services.</p>
     </div>
     """, unsafe_allow_html=True)
 
+    # Auto-refresh to mimic real-time updates (interval in ms)
     st_autorefresh(interval=10 * 1000, limit=None, key="datarefresh")
 
-    # --- Data input ---
+    # -------------------------
+    # Data input: multiple options
+    # -------------------------
     data_source = st.radio("Select Data Source", ['Upload CSV', 'Enter API URL', 'Paste Raw CSV Text'])
     dataset = None
+
     if data_source == 'Upload CSV':
         uploaded_file = st.file_uploader("Upload your data file", type=['csv', 'xlsx', 'xls', 'ods', 'txt', 'pdf'])
         if uploaded_file is not None:
@@ -177,6 +182,7 @@ def dashboard():
                 dataset = pd.read_csv(StringIO(response.text))
             except Exception as e:
                 st.error(f"Failed to fetch data from API: {e}")
+
     elif data_source == 'Paste Raw CSV Text':
         raw_csv = st.text_area("Paste your CSV text here")
         if raw_csv:
@@ -184,14 +190,17 @@ def dashboard():
                 dataset = pd.read_csv(StringIO(raw_csv))
             except Exception as e:
                 st.error(f"Failed to parse CSV text: {e}")
-  
+
+    # If no data: prompt and return
     if dataset is None:
         st.info("Please upload or enter data to continue.")
         if st.button("Back to Home"):
             st.session_state.page = "home"
         return
 
-
+    # -------------------------
+    # Basic validation & preprocessing
+    # -------------------------
     dataset.columns = dataset.columns.str.strip()
     required_cols = ['العمر Age', 'الجنسية Nationality', 'الجنس Gender']
     if not all(col in dataset.columns for col in required_cols):
@@ -200,11 +209,13 @@ def dashboard():
             st.session_state.page = "home"
         return
 
-    # Translate genders
+    # Map Arabic gender labels to English for consistent handling and labeling
     gender_map = {'أنثى': 'Female', 'ذكر': 'Male'}
     dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_map)
 
-    # --- FILTERS ---
+    # -------------------------
+    # FILTERS (applied to dataset)
+    # -------------------------
     st.markdown("### Filter Data")
 
     col1, col2, col3 = st.columns(3)
@@ -217,7 +228,7 @@ def dashboard():
         nationality_options = dataset['الجنسية Nationality'].dropna().unique()
         selected_nationalities = st.multiselect("Filter by Nationality", options=nationality_options, default=list(nationality_options))
 
-    # Detect date column if exists
+    # Optional date filtering if a date-like column exists
     date_cols = [c for c in dataset.columns if 'date' in c.lower()]
     date_column = None
     date_range = None
@@ -227,7 +238,6 @@ def dashboard():
         dataset[date_column] = pd.to_datetime(dataset[date_column], errors='coerce')
         min_date = dataset[date_column].min()
         max_date = dataset[date_column].max()
-
         with col3:
             date_range = st.date_input(
                 "Filter by Date Range",
@@ -239,12 +249,13 @@ def dashboard():
         with col3:
             st.write("No date column found for filtering")
 
-    # Apply filters
+    # Apply selected filters
     filtered_df = dataset[
         dataset['الجنس Gender'].isin(selected_genders) &
         dataset['الجنسية Nationality'].isin(selected_nationalities)
     ]
 
+    # Apply date range if present
     if date_column and date_range and len(date_range) == 2:
         start_date, end_date = pd.to_datetime(date_range[0]), pd.to_datetime(date_range[1])
         filtered_df = filtered_df[
@@ -252,19 +263,25 @@ def dashboard():
             (filtered_df[date_column] <= end_date)
         ]
 
-    # --- Preview filtered data ---
-    st.markdown("### Data Visualization(Filtered)")
+    # If no data after filtering, warn and exit
+    if filtered_df.empty:
+        st.warning("No data after applying filters.")
+        return
 
-    # Build Age frequency and repeated series for stats
+    # -------------------------
+    # AGE Distribution statistics (central place for full stats)
+    # -------------------------
+    # Build a repeated-series for proper stats calculations from the frequency table
     df_Age = filtered_df["العمر Age"].value_counts().reset_index()
     df_Age.columns = ['العمر Age', 'count']
     df_Age = df_Age.sort_values('العمر Age')
     df_repeated = df_Age['العمر Age'].repeat(df_Age['count']).astype(float)
 
     if df_repeated.empty:
-        st.warning("No data after applying filters.")
+        st.warning("No age data available after filtering.")
         return
 
+    # Statistical metrics for age
     stats = {
         "max": df_repeated.max(),
         "min": df_repeated.min(),
@@ -278,7 +295,7 @@ def dashboard():
         "kurtosis": df_repeated.kurt()
     }
 
-    # --- Age Distribution (Plotly) ---
+    # Age histogram with Plotly and vertical lines for mean/median/mode
     st.markdown("### 📈 Age Distribution with Statistical Markers")
     fig_age_dist = px.histogram(filtered_df, x='العمر Age', nbins=20, title="Age Distribution (Filtered Data)")
     fig_age_dist.add_vline(x=stats["mean"], line_dash="dot", line_color="red", annotation_text=f"Mean: {stats['mean']:.2f}")
@@ -286,42 +303,56 @@ def dashboard():
     fig_age_dist.add_vline(x=stats["mode"], line_dash="dashdot", line_color="purple", annotation_text=f"Mode: {stats['mode']:.2f}")
     st.plotly_chart(fig_age_dist, use_container_width=True)
 
+    # Detailed interpretation for age (only place we show full stats explanations)
     st.info(f"""
-    **Interpretation:**  
-    - **Mean ({stats['mean']:.2f})** — average age.  
-    - **Median ({stats['median']:.2f})** — middle value dividing the population.  
-    - **Mode ({stats['mode']:.2f})** — most common age.  
-    - **Skewness ({stats['skewness']:.2f})** — asymmetry: positive = right-skew (younger tail), negative = left-skew (older tail).  
-    - **Kurtosis ({stats['kurtosis']:.2f})** — tail-heaviness: higher = heavier tails / more outliers.
+    **How to interpret the Age Distribution & statistics:**  
+    - **Mean ({stats['mean']:.2f})** — average age; sensitive to outliers.  
+    - **Median ({stats['median']:.2f})** — middle value; robust to outliers.  
+    - **Mode ({stats['mode']:.2f})** — most common age in the data.  
+    - **Min / Max** — range of ages: {stats['min']:.0f} to {stats['max']:.0f}.  
+    - **Q1 / Q3** — first and third quartiles: {stats['q1']:.0f} / {stats['q3']:.0f}.  
+    - **IQR** — interquartile range shows spread in the middle 50%.  
+    - **Std Dev ({stats['std']:.2f}) & Variance** quantify dispersion.  
+    - **Skewness ({stats['skewness']:.2f})** — positive => right-skew (long right tail), negative => left-skew.  
+    - **Kurtosis ({stats['kurtosis']:.2f})** — high kurtosis suggests heavy tails (more outliers).
     """)
 
     st.markdown("---")
 
-    # ---- 2. Plotly Line Chart of Age Distribution (counts by age) ----
+    # -------------------------
+    # Age counts by unique age (line chart)
+    # -------------------------
     fig_age_line = px.line(df_Age, x='العمر Age', y='count', markers=True,
-        title="Age Distribution (Counts by Age)", labels={'العمر Age': "Age", 'count': "Count"})
+                          title="Age Distribution (Counts by Age)", labels={'العمر Age': "Age", 'count': "Count"})
     fig_age_line.update_layout(template="plotly_dark", height=450)
     st.plotly_chart(fig_age_line, use_container_width=True)
 
     st.markdown("---")
 
-    # ---- 3. Nationality by Gender (with bilingual gender labels) ----
-    fig_hist = px.histogram(
+    # -------------------------
+    # Nationality by Gender (grouped histogram)
+    # -------------------------
+    fig_nat_gender = px.histogram(
         filtered_df, x='الجنسية Nationality', color='Gender_English',
         barmode="group",
-        title="DEMOGRAPHICS OF NATIONALITY BY GENDER",
+        title="Demographics of Nationality by Gender",
         labels={'Gender_English': "Gender", 'الجنسية Nationality': "Nationality"}
     )
-    fig_hist.update_layout(template="plotly_white", height=450)
-    st.plotly_chart(fig_hist, use_container_width=True)
+    fig_nat_gender.update_layout(template="plotly_white", height=450)
+    st.plotly_chart(fig_nat_gender, use_container_width=True)
+
+    st.info("This grouped bar chart shows nationality counts split by gender. Compare bars within each nationality to see gender balance per country.")
 
     st.markdown("---")
 
-    # ---- 4. Bubble Chart: Nationality & Gender by Mean Age ----
+    # -------------------------
+    # Bubble Chart: Nationality & Gender by Mean Age
+    # -------------------------
     agg = filtered_df.groupby(['الجنسية Nationality', 'Gender_English']).agg(
         count=('العمر Age', 'count'),
         avg_age=('العمر Age', 'mean')).reset_index()
     agg['avg_age'] = agg['avg_age'].round(1)
+
     fig_bubble = px.scatter(
         agg, x='الجنسية Nationality', y='count', size='avg_age',
         color='الجنسية Nationality', facet_col='Gender_English',
@@ -331,9 +362,13 @@ def dashboard():
     fig_bubble.update_layout(template="plotly_dark", height=500)
     st.plotly_chart(fig_bubble, use_container_width=True)
 
+    st.info("Bubble size corresponds to average age for that nationality/gender group. Larger bubbles mean higher mean age; y-axis shows count.")
+
     st.markdown("---")
 
-    # ---- 5. Full Demographics (Age, Gender, Nationality) ----
+    # -------------------------
+    # Full Demographics (Age, Gender, Nationality) - Faceted histogram
+    # -------------------------
     fig_demo = px.histogram(
         filtered_df, x='العمر Age', color='الجنسية Nationality', facet_col='Gender_English',
         barmode="overlay", title="Demographic Characteristics: Age, Gender, Nationality"
@@ -341,23 +376,98 @@ def dashboard():
     fig_demo.update_layout(template="ggplot2", height=500)
     st.plotly_chart(fig_demo, use_container_width=True)
 
+    st.info("Faceted histograms let you compare age distributions across genders and nationalities at once. Look for differences in shapes between facets.")
+
     st.markdown("---")
 
-    # ---- NEW: Frequency Distribution Analysis (Filtered Data) ----
+    # -------------------------
+    # OPTIONAL: Gender x Language stacked bar chart
+    # Render ONLY if language column exists
+    # -------------------------
+    if 'اللغة Language' in dataset.columns:
+        st.subheader("🌍 Gender–Language Interaction Analysis")
+
+        # Translation dictionaries to map language names and gender for display
+        language_translation = {
+            'Bahasa Indonesia': 'Indonesian',
+            'Français': 'French',
+            'Türkçe': 'Turkish',
+            'বাংলা (Bengali)': 'Bengali',
+            'اردو': 'Urdu',
+            'English': 'English',
+            'فارسی': 'Persian (Farsi)',
+            'العربية': 'Arabic'
+        }
+
+        gender_translation = {
+            'أنثى': 'Female',
+            'ذكر': 'Male'
+        }
+
+        # Ensure we have a Gender_English column (created earlier). If not, create it.
+        if 'Gender_English' not in dataset.columns:
+            dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_translation)
+
+        # Build cross-tab (gender x language) on the FILTERED dataset so filters apply
+        language_gender_ct = pd.crosstab(filtered_df['Gender_English'], filtered_df['اللغة Language'])
+
+        gender_labels = language_gender_ct.index.tolist()
+
+        # Build stacked bar traces using graph_objects for custom hover text
+        bars = []
+        for language in language_gender_ct.columns:
+            # Map language label if available, otherwise fallback to original
+            label_language = language_translation.get(language, language)
+
+            hover_text = [
+                f"Gender: {gender}<br>Language: {label_language}<br>Count: {count}"
+                for gender, count in zip(gender_labels, language_gender_ct[language])
+            ]
+
+            bars.append(go.Bar(
+                name=label_language,
+                x=gender_labels,
+                y=language_gender_ct[language],
+                hovertext=hover_text,
+                hoverinfo='text'
+            ))
+
+        fig_lang_gender = go.Figure(data=bars)
+        fig_lang_gender.update_layout(
+            barmode='stack',
+            title='Distribution of Gender and Language (Filtered Data)',
+            xaxis_title='Gender',
+            yaxis_title='Count',
+            legend_title='Language',
+            template='plotly_white'
+        )
+
+        st.plotly_chart(fig_lang_gender, use_container_width=True)
+        st.info("Stacked bars show the count of languages spoken per gender. Taller total bars mean more respondents of that gender; colored segments show language composition.")
+
+    else:
+        # If language not present, let the user know it's optional
+        st.info("Language column ('اللغة Language') not found — Gender–Language analysis is optional and will appear if your dataset includes that column.")
+
+    st.markdown("---")
+
+    # -------------------------
+    # Frequency Distribution Analysis (Filtered Data)
+    # Show frequency tables for Nationality, Gender, and Age
+    # -------------------------
     st.subheader("🧮 Frequency Distribution Analysis (Filtered Data)")
 
-    # Frequency by Nationality
+    # Nationality frequency table + percentage + total row
     freq_nat = filtered_df["الجنسية Nationality"].value_counts().reset_index()
     freq_nat.columns = ["Nationality", "Frequency"]
     freq_nat["Percentage"] = (freq_nat["Frequency"] / freq_nat["Frequency"].sum() * 100).round(2)
-    # Add Total row for display (not necessary for charts)
     totals_nat = pd.DataFrame([{"Nationality": "Total", "Frequency": freq_nat["Frequency"].sum(), "Percentage": freq_nat["Percentage"].sum()}])
     freq_nat_display = pd.concat([freq_nat, totals_nat], ignore_index=True)
     st.markdown("#### Nationality Frequency Table")
     st.dataframe(freq_nat_display)
-    st.info("Higher frequency indicates a larger representation of that nationality in the filtered dataset.")
+    st.info("Higher frequency indicates a larger representation of that nationality in the filtered dataset. Use percentages to compare relative shares across countries.")
 
-    # Frequency by Gender
+    # Gender frequency table + percentage + total row
     freq_gender = filtered_df["Gender_English"].value_counts().reset_index()
     freq_gender.columns = ["Gender", "Frequency"]
     freq_gender["Percentage"] = (freq_gender["Frequency"] / freq_gender["Frequency"].sum() * 100).round(2)
@@ -365,9 +475,9 @@ def dashboard():
     freq_gender_display = pd.concat([freq_gender, totals_gender], ignore_index=True)
     st.markdown("#### Gender Frequency Table")
     st.dataframe(freq_gender_display)
-    st.info("Gender distribution shows the proportion of male and female pilgrims in the filtered dataset.")
+    st.info("Gender distribution shows the proportion of male and female pilgrims in the filtered dataset. Use percentages for quick comparison.")
 
-    # Frequency by Age
+    # Age frequency table + percentage + total row
     freq_age = filtered_df['العمر Age'].value_counts().reset_index()
     freq_age.columns = ["Age", "Frequency"]
     freq_age = freq_age.sort_values("Age")
@@ -376,11 +486,13 @@ def dashboard():
     freq_age_display = pd.concat([freq_age, totals_age], ignore_index=True)
     st.markdown("#### Age Frequency Table")
     st.dataframe(freq_age_display)
-    st.info("Observe which ages dominate the distribution to identify the primary demographic age range.")
+    st.info("Observe which ages dominate the distribution to identify the primary demographic age range in the filtered data.")
 
     st.markdown("---")
 
-    # ---- Graphical Representations (Plotly only) ----
+    # -------------------------
+    # Graphical Representations of Frequency Distributions (Plotly)
+    # -------------------------
     st.subheader("📊 Graphical Representation of Distributions (Plotly)")
 
     # Nationality bar chart
@@ -389,36 +501,40 @@ def dashboard():
                          color="Frequency", color_continuous_scale="Viridis")
         fig_nat.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig_nat, use_container_width=True)
-        st.info("Taller bars indicate higher representation by nationality. Look for dominant or underrepresented national groups.")
+        st.info("Taller bars indicate higher representation by nationality. Look for countries that dominate or are underrepresented.")
 
     # Gender pie chart
     if not freq_gender.empty:
         fig_gender = px.pie(freq_gender, names="Gender", values="Frequency", title="Gender: Proportional Distribution",
                             color_discrete_sequence=px.colors.qualitative.Set3)
         st.plotly_chart(fig_gender, use_container_width=True)
-        st.info("Pie chart reveals gender proportionality — near equal slices suggest gender balance, while skewed distribution highlights dominance.")
+        st.info("Pie chart reveals gender proportionality — near equal slices suggest balance; skewed slices highlight dominance by one gender.")
 
-    # Age histogram (interactive)
+    # Age histogram
     fig_age_hist = px.histogram(filtered_df, x="العمر Age", nbins=15, title="Age: Frequency Distribution (Filtered Data)")
     st.plotly_chart(fig_age_hist, use_container_width=True)
     st.info("""
     **How to interpret the age histogram & statistics:**  
-    - **Shape**: indicates whether distribution is left/right-skewed or approximately normal.  
+    - **Shape**: indicates whether the distribution is left/right-skewed or approximately normal.  
     - **Spread**: wide spread = high variance / age diversity.  
     - **Skewness**: positive = right-skew (long tail to the right), negative = left-skew.  
     - **Kurtosis**: high kurtosis suggests heavy tails / more outliers.  
-    - **Mean/Median/Mode** give central tendency; compare mean vs median to detect skew.
+    - Compare mean vs median to detect skew.
     """)
 
     st.markdown("---")
 
+    # Back to home button
     if st.button("Back to Home"):
         st.session_state.page = "home"
 
 
-# --- ANALYZE COMMENTS PAGE ---
+# -------------------------
+# ANALYZE COMMENTS PAGE
+# (unchanged functionality: translation + sentiment pipeline + chunk processing)
+# -------------------------
 def analyze():
-    # Keep original analyze functionality fully intact (translation + sentiment pipeline + chunk processing)
+    """Analyze comments: translation, department classification, primary sentiment."""
     add_bg_from_local("background.png")
     st.title("Sentiment Classification with Primary Model")
 
@@ -426,6 +542,7 @@ def analyze():
         st.session_state.page = "home"
         return
 
+    # Themes & keywords for simple department classification
     themes_topics = {
         "Customer Service": ["service", "support", "help", "rude", "friendly"],
         "Product Quality": ["defective", "quality", "broken", "excellent"],
@@ -434,18 +551,24 @@ def analyze():
         "General Services": ["general", "other"]
     }
 
+    # Primary sentiment pipeline (Hugging Face)
     primary_pipeline = pipeline("sentiment-analysis", model="distilbert/distilbert-base-uncased-finetuned-sst-2-english", framework="pt")
     cache = {}
 
     def translator_dual(text, src="auto", dest="en"):
-        if pd.isnull(text): return None, None
+        """Translate text to English (cached)."""
+        if pd.isnull(text):
+            return None, None
         text = str(text).strip()
         if text not in cache:
-            try: cache[text] = GoogleTranslator(source=src, target=dest).translate(text)
-            except Exception as e: cache[text] = f"Error: {e}"
+            try:
+                cache[text] = GoogleTranslator(source=src, target=dest).translate(text)
+            except Exception as e:
+                cache[text] = f"Error: {e}"
         return text, cache[text]
 
     def classify_department(comment):
+        """Assign a thematic department based on keyword matching."""
         tokens = set(comment.lower().split())
         for theme, keywords in themes_topics.items():
             if any(keyword in tokens for keyword in keywords):
@@ -453,10 +576,12 @@ def analyze():
         return "General Services"
 
     def analyze_primary_sentiment(comment):
+        """Return sentiment label and confidence score from pipeline."""
         result = primary_pipeline(comment)[0]
         return result["label"], round(result["score"], 2)
 
     def extract_comments_in_chunks(file, chunksize=10000):
+        """Yield chunks of comments from various file formats to avoid memory issues."""
         filename = file.name.lower()
         if filename.endswith(".pdf"):
             with pdfplumber.open(file) as pdf:
@@ -485,11 +610,13 @@ def analyze():
             yield None
 
     def process_chunk(chunk):
+        """Process a DataFrame chunk: translate, classify department, analyze sentiment."""
         chunk[["Original", "Translated"]] = chunk["Comments"].apply(lambda c: pd.Series(translator_dual(c)))
         chunk["Department"] = chunk["Translated"].apply(classify_department)
         chunk[["Primary Sentiment", "Confidence"]] = chunk["Translated"].apply(lambda c: pd.Series(analyze_primary_sentiment(c)))
         return chunk
 
+    # Upload or manual input
     uploaded_file = st.file_uploader("📄 Upload CSV, Excel, PDF, TXT, or JSON", type=["csv", "xlsx", "pdf", "txt", "json"])
     manual_input = st.text_area("Write Or paste/enter comments manually (one per line):", height=200)
 
@@ -499,7 +626,8 @@ def analyze():
         progress_bar = st.progress(0)
         rows_processed = 0
         for chunk in extract_comments_in_chunks(uploaded_file):
-            if chunk is None: break
+            if chunk is None:
+                break
             processed = process_chunk(chunk)
             results.append(processed)
             rows_processed += len(processed)
@@ -510,6 +638,7 @@ def analyze():
             st.dataframe(df_results.head(1000))
             csv = df_results.to_csv(index=False).encode("utf-8")
             st.download_button("⬇️ Download Results", csv, "primary_model_results.csv", "text/csv")
+
     elif manual_input.strip():
         lines = [line.strip() for line in manual_input.split("\n") if line.strip()]
         df_manual = pd.DataFrame({"Comments": lines})
@@ -519,12 +648,16 @@ def analyze():
         st.dataframe(df_results)
         csv = df_results.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Download CSV", csv, "manual_primary_results.csv", "text/csv")
+
     else:
         st.info("📂 Upload a file or enter comments above to get started.")
 
 
-# --- BACKGROUND CSS FOR ANALYZE PAGE ---
+# -------------------------
+# BACKGROUND CSS FOR ANALYZE PAGE
+# -------------------------
 def add_bg_from_local(image_file):
+    """Set a background image for the analyze page."""
     with open(image_file, "rb") as img_file:
         encoded_string = base64.b64encode(img_file.read()).decode()
     st.markdown(
@@ -544,8 +677,11 @@ def add_bg_from_local(image_file):
     )
 
 
-# --- MAIN ROUTING ---
+# -------------------------
+# MAIN ROUTING
+# -------------------------
 def main():
+    """Main app router switching between pages stored in session_state."""
     if 'page' not in st.session_state:
         st.session_state.page = "home"
 
@@ -556,6 +692,7 @@ def main():
     elif st.session_state.page == "analyze":
         analyze()
     elif st.session_state.page == "documentation":
+        # documentation.show() should render the documentation page from your module
         documentation.show()
 
 
