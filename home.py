@@ -1,5 +1,6 @@
 # home.py
 import streamlit as st
+import matplotlib.pyplot as plt
 import base64
 import pandas as pd
 import plotly.express as px
@@ -662,6 +663,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
