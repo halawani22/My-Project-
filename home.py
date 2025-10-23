@@ -398,7 +398,7 @@ def dashboard():
     # Filter out 'Total' row if it exists
     freq_tableplt = freq_table[freq_table["Nationality"] != "Total"]
 
-    fig, ax = plt.subplots(figsize=(8, 4))  # compact figure size
+    fig, ax = plt.subplots(figsize=(4, 2))  # compact figure size
     freq_tableplt.plot(
         kind="bar",
         x="Nationality",
@@ -424,7 +424,7 @@ def dashboard():
     # Filter out 'Total' row if it exists
     freq_tableplt = freq_table_gender[freq_table_gender["Gender"] != "Total"].set_index("Gender")
 
-    fig, ax = plt.subplots(figsize=(5, 5))  # square figure for pie chart
+    fig, ax = plt.subplots(figsize=(3, 3))  # square figure for pie chart
     freq_tableplt["Frequency"].plot(
         kind="pie",
         autopct="%1.1f%%",
@@ -444,7 +444,7 @@ def dashboard():
     # Filter out 'Total' row if it exists
     freq_tableplt = freq_table_age[freq_table_age["Age"] != "Total"]
 
-    fig, ax = plt.subplots(figsize=(8, 4))  # compact figure size
+    fig, ax = plt.subplots(figsize=(4, 2))  # compact figure size
     freq_tableplt.plot(
         kind="bar",
         x="Age",
@@ -664,6 +664,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
