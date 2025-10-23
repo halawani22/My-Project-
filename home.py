@@ -398,7 +398,7 @@ def dashboard():
     # Filter out 'Total' row if it exists
     freq_tableplt = freq_table[freq_table["Nationality"] != "Total"]
 
-    fig, ax = plt.subplots(figsize=(4, 2))  # compact figure size
+    fig, ax = plt.subplots(figsize=(6, 3))  # compact figure size
     freq_tableplt.plot(
         kind="bar",
         x="Nationality",
@@ -444,7 +444,7 @@ def dashboard():
     # Filter out 'Total' row if it exists
     freq_tableplt = freq_table_age[freq_table_age["Age"] != "Total"]
 
-    fig, ax = plt.subplots(figsize=(4, 2))  # compact figure size
+    fig, ax = plt.subplots(figsize=(6, 3))  # compact figure size
     freq_tableplt.plot(
         kind="bar",
         x="Age",
@@ -664,6 +664,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
