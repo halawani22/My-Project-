@@ -388,9 +388,10 @@ def dashboard():
     st.markdown("---")
 
     # ---------------- STATISTICAL DISTRIBUTION VISUALIZATIONS ----------------
-    st.subheader(" Statistical Distribution Visualizations")
-    st.markdown("---")
-    # --- Nationality Frequency Bar Plot ---
+st.subheader(" Statistical Distribution Visualizations")
+st.markdown("---")
+
+# --- Nationality Frequency Bar Plot ---
 freq_table = filtered_df['الجنسية Nationality'].value_counts().reset_index()
 freq_table.columns = ['Nationality', 'Frequency']
 
@@ -471,11 +472,11 @@ plt.tight_layout()
 st.pyplot(fig, clear_figure=True)
 st.info("Interpretation: Bar heights represent counts for each age. Peaks highlight the most common ages in the dataset.")
 
+st.markdown("---")
 
-    st.markdown("---")
+if st.button("Back to Home"):
+    st.session_state.page = "home"
 
-    if st.button("Back to Home"):
-        st.session_state.page = "home"
 
 # ---------------- ANALYZE COMMENTS PAGE ----------------
 def analyze():
@@ -663,6 +664,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
