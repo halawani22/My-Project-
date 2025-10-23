@@ -437,41 +437,6 @@ def dashboard():
     st.pyplot(fig, clear_figure=True)
     st.info("Interpretation: Pie slices show proportion of each gender in the filtered data.")
 
-    # --- Age Frequency Histogram ---
-    freq_table_age = filtered_df['العمر Age'].value_counts().reset_index()
-    freq_table_age.columns = ['Age', 'Frequency']
-
-    # Filter out 'Total' row if it exists
-    freq_tableplt = freq_table_age[freq_table_age["Age"] != "Total"]
-
-    fig, ax = plt.subplots(figsize=(6, 3))  # compact figure size
-    freq_tableplt.plot(
-        kind="bar",
-        x="Age",
-        y="Frequency",
-        legend=False,
-        color="steelblue",
-        ax=ax
-    )
-    plt.title("Age: Frequency Distribution")
-    plt.xlabel("Age")
-    plt.ylabel("Frequency")
-    plt.xticks(rotation=45)
-    for bar in ax.patches:
-        height = bar.get_height()
-        if height > 0:
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                height,
-                int(height),
-                ha='center',
-                va='bottom',
-                fontsize=9
-            )
-    plt.tight_layout()
-    st.pyplot(fig, clear_figure=True)
-    st.info("Interpretation: Bar heights represent counts for each age. Peaks highlight the most common ages in the dataset.")
-
     st.markdown("---")
 
     if st.button("Back to Home"):
@@ -664,6 +629,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
