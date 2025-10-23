@@ -384,10 +384,10 @@ def dashboard():
     st.download_button("⬇️ Download Age CSV", freq_age.to_csv(index=False).encode('utf-8'), "age_freq.csv", "text/csv")
     st.info("Interpretation: which ages dominate? use mean/median/skew to interpret distribution.")
 
-        st.markdown("---")
+    st.markdown("---")
 
     # ---------------- STATISTICAL DISTRIBUTION VISUALIZATIONS ----------------
-    st.subheader("📊 Statistical Distribution Visualizations")
+    st.subheader(" Statistical Distribution Visualizations")
 
     # --- Nationality Frequency Bar Plot ---
     freq_table = filtered_df['الجنسية Nationality'].value_counts().reset_index()
@@ -662,6 +662,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
