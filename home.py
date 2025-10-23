@@ -157,7 +157,7 @@ def dashboard():
     dataset.columns = dataset.columns.str.strip()
     required_cols = ['العمر Age', 'الجنسية Nationality', 'الجنس Gender']
     if not all(col in dataset.columns for col in required_cols):
-        st.error("Required columns not found in uploaded data. Required: 'العمر Age', 'الجنسية Nationality', 'الجنس Gender'")
+        st.error("❌ Required columns not found in uploaded data. Required: 'العمر Age', 'الجنسية Nationality', 'الجنس Gender'")
         if st.button("Back to Home"):
             st.session_state.page = "home"
         return
@@ -167,7 +167,7 @@ def dashboard():
     dataset['Gender_English'] = dataset['الجنس Gender'].map(gender_map)
 
     # ----------- FILTERS -----------
-    st.markdown("### Filter Data")
+    st.markdown("###  Filter Data")
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -230,7 +230,7 @@ def dashboard():
     st.markdown("---")
 
     # ---------------- AGE DISTRIBUTION & STATS ----------------
-    st.subheader(" Age Distribution with Statistical Markers (Filtered Data)")
+    st.subheader("Age Distribution with Statistical Markers (Filtered Data)")
 
     # Build age frequency table robustly and ensure numeric sorting
     df_age = filtered_df['العمر Age'].value_counts().reset_index()
@@ -354,7 +354,7 @@ def dashboard():
     st.markdown("---")
 
     # ---------------- FREQUENCY TABLES + CSV DOWNLOADS ----------------
-    st.subheader("Frequency Distribution Tables (Filtered Data)")
+    st.subheader(" Frequency Distribution Tables (Filtered Data)")
 
     # Nationality table + download
     freq_nat = filtered_df['الجنسية Nationality'].value_counts().reset_index()
@@ -362,7 +362,7 @@ def dashboard():
     freq_nat['Percentage'] = (freq_nat['Frequency'] / freq_nat['Frequency'].sum() * 100).round(2)
     st.markdown("#### Nationality Frequency Table")
     st.dataframe(freq_nat)
-    st.download_button("⬇️Download Nationality CSV", freq_nat.to_csv(index=False).encode('utf-8'), "nationality_freq.csv", "text/csv")
+    st.download_button("⬇️ Download Nationality CSV", freq_nat.to_csv(index=False).encode('utf-8'), "nationality_freq.csv", "text/csv")
     st.info("Interpretation: percentages show relative share; frequency shows counts.")
 
     # Gender table + download
@@ -575,4 +575,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
