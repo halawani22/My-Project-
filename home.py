@@ -389,87 +389,87 @@ def dashboard():
 
     # ---------------- STATISTICAL DISTRIBUTION VISUALIZATIONS ----------------
     st.subheader(" Statistical Distribution Visualizations")
-
+    st.markdown("---")
     # --- Nationality Frequency Bar Plot ---
-    freq_table = filtered_df['الجنسية Nationality'].value_counts().reset_index()
-    freq_table.columns = ['Nationality', 'Frequency']
-    
-    # Filter out 'Total' row if it exists
-    freq_tableplt = freq_table[freq_table["Nationality"] != "Total"]
-    
-    fig, ax = plt.subplots()
-    freq_tableplt.plot(
-        kind="bar",
-        x="Nationality",
-        y="Frequency",
-        legend=False,
-        color="steelblue",
-        ax=ax
-    )
-    plt.title("Nationality: Frequency Distribution")
-    plt.xlabel("Nationality")
-    plt.ylabel("Frequency")
-    plt.xticks(rotation=45)
-    for i, v in enumerate(freq_tableplt["Frequency"]):
-        ax.text(i, v + 0.5, str(v), ha='center', va='bottom', fontsize=9)
-    plt.tight_layout()
-    st.pyplot(fig)
-    st.info("Interpretation: Bar heights represent the number of respondents per nationality. Peaks indicate the most common nationalities.")
+freq_table = filtered_df['الجنسية Nationality'].value_counts().reset_index()
+freq_table.columns = ['Nationality', 'Frequency']
 
-    # --- Gender Proportional Pie Chart ---
-    freq_table_gender = filtered_df['Gender_English'].value_counts().reset_index()
-    freq_table_gender.columns = ['Gender', 'Frequency']
-    
-    # Filter out 'Total' row if it exists
-    freq_tableplt = freq_table_gender[freq_table_gender["Gender"] != "Total"].set_index("Gender")
-    
-    fig, ax = plt.subplots(figsize=(4, 4))
-    freq_tableplt["Frequency"].plot(
-        kind="pie",
-        autopct="%1.1f%%",
-        startangle=90,
-        ax=ax
-    )
-    plt.title("Gender: Proportionality Distribution")
-    plt.ylabel("")
-    plt.tight_layout()
-    st.pyplot(fig)
-    st.info("Interpretation: Pie slices show proportion of each gender in the filtered data.")
+# Filter out 'Total' row if it exists
+freq_tableplt = freq_table[freq_table["Nationality"] != "Total"]
 
-    # --- Age Frequency Histogram ---
-    freq_table_age = filtered_df['العمر Age'].value_counts().reset_index()
-    freq_table_age.columns = ['Age', 'Frequency']
-    
-    # Filter out 'Total' row if it exists
-    freq_tableplt = freq_table_age[freq_table_age["Age"] != "Total"]
-    
-    fig, ax = plt.subplots()
-    freq_tableplt.plot(
-        kind="bar",
-        x="Age",
-        y="Frequency",
-        legend=False,
-        color="steelblue",
-        ax=ax
-    )
-    plt.title("Age: Frequency Distribution")
-    plt.xlabel("Age")
-    plt.ylabel("Frequency")
-    plt.xticks(rotation=45)
-    for bar in ax.patches:
-        height = bar.get_height()
-        if height > 0:
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                height,
-                int(height),
-                ha='center',
-                va='bottom',
-                fontsize=9
-            )
-    plt.tight_layout()
-    st.pyplot(fig)
-    st.info("Interpretation: Bar heights represent counts for each age. Peaks highlight the most common ages in the dataset.")
+fig, ax = plt.subplots(figsize=(8, 4))  # compact figure size
+freq_tableplt.plot(
+    kind="bar",
+    x="Nationality",
+    y="Frequency",
+    legend=False,
+    color="steelblue",
+    ax=ax
+)
+plt.title("Nationality: Frequency Distribution")
+plt.xlabel("Nationality")
+plt.ylabel("Frequency")
+plt.xticks(rotation=45)
+for i, v in enumerate(freq_tableplt["Frequency"]):
+    ax.text(i, v + 0.5, str(v), ha='center', va='bottom', fontsize=9)
+plt.tight_layout()
+st.pyplot(fig, clear_figure=True)
+st.info("Interpretation: Bar heights represent the number of respondents per nationality. Peaks indicate the most common nationalities.")
+
+# --- Gender Proportional Pie Chart ---
+freq_table_gender = filtered_df['Gender_English'].value_counts().reset_index()
+freq_table_gender.columns = ['Gender', 'Frequency']
+
+# Filter out 'Total' row if it exists
+freq_tableplt = freq_table_gender[freq_table_gender["Gender"] != "Total"].set_index("Gender")
+
+fig, ax = plt.subplots(figsize=(5, 5))  # square figure for pie chart
+freq_tableplt["Frequency"].plot(
+    kind="pie",
+    autopct="%1.1f%%",
+    startangle=90,
+    ax=ax
+)
+plt.title("Gender: Proportionality Distribution")
+plt.ylabel("")
+plt.tight_layout()
+st.pyplot(fig, clear_figure=True)
+st.info("Interpretation: Pie slices show proportion of each gender in the filtered data.")
+
+# --- Age Frequency Histogram ---
+freq_table_age = filtered_df['العمر Age'].value_counts().reset_index()
+freq_table_age.columns = ['Age', 'Frequency']
+
+# Filter out 'Total' row if it exists
+freq_tableplt = freq_table_age[freq_table_age["Age"] != "Total"]
+
+fig, ax = plt.subplots(figsize=(8, 4))  # compact figure size
+freq_tableplt.plot(
+    kind="bar",
+    x="Age",
+    y="Frequency",
+    legend=False,
+    color="steelblue",
+    ax=ax
+)
+plt.title("Age: Frequency Distribution")
+plt.xlabel("Age")
+plt.ylabel("Frequency")
+plt.xticks(rotation=45)
+for bar in ax.patches:
+    height = bar.get_height()
+    if height > 0:
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            height,
+            int(height),
+            ha='center',
+            va='bottom',
+            fontsize=9
+        )
+plt.tight_layout()
+st.pyplot(fig, clear_figure=True)
+st.info("Interpretation: Bar heights represent counts for each age. Peaks highlight the most common ages in the dataset.")
 
 
     st.markdown("---")
@@ -663,6 +663,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
