@@ -116,7 +116,7 @@ def analyze():
     - Returns confidence scores
     """
     add_bg_from_local("background.png")
-    st.title("💬 Comprehensive Comment Analysis — Sentiment & Department Classification")
+    st.title("Comprehensive Comment Analysis — Sentiment & Department Classification")
 
     if st.button("Back to Home"):
         st.session_state.page = "home"
@@ -290,3 +290,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
